@@ -581,27 +581,60 @@ func (a *SimpleChatAgent) ChatStream(ctx context.Context, message string, enable
 	return fullResponse, nil
 }
 
-// getClientID generates a unique client ID based on IP and User-Agent
-func getClientID(r *http.Request) string {
-	// Get client IP
-	clientIP := r.Header.Get("X-Forwarded-For")
-	if clientIP == "" {
-		clientIP = r.Header.Get("X-Real-IP")
-	}
-	if clientIP == "" {
-		clientIP = strings.Split(r.RemoteAddr, ":")[0]
+// getUserID extracts the authenticated user ID from the request context
+func (cs *ChatServer) getUserID(r *http.Request) string {
+	// Try to get user from context first (for authenticated requests)
+	if claims, ok := middleware.GetUserFromContext(r.Context()); ok {
+		return claims.UserID
 	}
 
-	// Get User-Agent
-	userAgent := r.Header.Get("User-Agent")
-	if userAgent == "" {
-		userAgent = "unknown"
+	// Fallback: check token in Authorization header
+	token := r.Header.Get("Authorization")
+	if token != "" && strings.HasPrefix(token, "Bearer ") {
+		tokenStr := strings.TrimPrefix(token, "Bearer ")
+		if claims, err := cs.jwtAuth.ValidateToken(tokenStr); err == nil {
+			return claims.UserID
+		}
 	}
 
-	// Create unique hash from IP + User-Agent
-	h := md5.New()
-	h.Write([]byte(clientIP + userAgent + "chat-salt"))
-	return fmt.Sprintf("%x", h.Sum(nil))[:16]
+	// Fallback: check token in cookie
+	if cookie, err := r.Cookie("access_token"); err == nil {
+		if claims, err := cs.jwtAuth.ValidateToken(cookie.Value); err == nil {
+			return claims.UserID
+		}
+	}
+
+	// If no authenticated user, return empty string
+	// This should not happen for protected routes
+	return ""
+}
+
+// getClientID generates a unique client ID based on authenticated user ID
+func (cs *ChatServer) getClientID(r *http.Request) string {
+	userID := cs.getUserID(r)
+	if userID == "" {
+		// This should not happen for protected routes, but handle gracefully
+		// Fallback to IP-based ID for unauthenticated access (should be redirected to login)
+		clientIP := r.Header.Get("X-Forwarded-For")
+		if clientIP == "" {
+			clientIP = r.Header.Get("X-Real-IP")
+		}
+		if clientIP == "" {
+			clientIP = strings.Split(r.RemoteAddr, ":")[0]
+		}
+
+		userAgent := r.Header.Get("User-Agent")
+		if userAgent == "" {
+			userAgent = "unknown"
+		}
+
+		h := md5.New()
+		h.Write([]byte(clientIP + userAgent + "fallback-salt"))
+		return fmt.Sprintf("fallback_%x", h.Sum(nil))[:16]
+	}
+
+	// Return the actual user ID
+	return userID
 }
 
 // ChatServer manages HTTP endpoints and chat agents
@@ -784,17 +817,17 @@ func NewChatServer(sessionDir string, maxHistory int, port string, configPath st
 	return server, nil
 }
 
-// getSessionManager gets or creates a SessionManager for a specific client
-func (cs *ChatServer) GetSessionManager(clientID string) *sessionpkg.SessionManager {
+// getSessionManager gets or creates a SessionManager for a specific user
+func (cs *ChatServer) GetSessionManager(userID string) *sessionpkg.SessionManager {
 	cs.smMu.Lock()
 	defer cs.smMu.Unlock()
 
-	sm, exists := cs.sessionManagers[clientID]
+	sm, exists := cs.sessionManagers[userID]
 	if !exists {
-		clientSessionDir := fmt.Sprintf("%s/clients/%s", cs.sessionDir, clientID)
-		store := sessionpkg.NewFileSessionStore(clientSessionDir)
+		userSessionDir := fmt.Sprintf("%s/users/%s", cs.sessionDir, userID)
+		store := sessionpkg.NewFileSessionStore(userSessionDir)
 		sm = sessionpkg.NewSessionManager(store, cs.maxHistory)
-		cs.sessionManagers[clientID] = sm
+		cs.sessionManagers[userID] = sm
 	}
 	return sm
 }
@@ -912,7 +945,8 @@ func (cs *ChatServer) releaseRequest() {
 
 // HandleIndex serves the main HTML page
 func (cs *ChatServer) HandleIndex(w http.ResponseWriter, r *http.Request, staticFS fs.FS) {
-	if r.URL.Path != "/" {
+	// Serve index.html for root path and session routes (SPA support)
+	if r.URL.Path != "/" && !strings.HasPrefix(r.URL.Path, "/sessions/") {
 		http.NotFound(w, r)
 		return
 	}
@@ -938,14 +972,14 @@ func (cs *ChatServer) HandleNewSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientID := getClientID(r)
-	sm := cs.GetSessionManager(clientID)
+	userID := cs.getClientID(r)
+	sm := cs.GetSessionManager(userID)
 	session := sm.CreateSession()
 
-	// Set client ID cookie
+	// Set user ID cookie
 	http.SetCookie(w, &http.Cookie{
-		Name:     "client_id",
-		Value:    clientID,
+		Name:     "user_id",
+		Value:    userID,
 		Path:     "/",
 		MaxAge:   86400 * 30, // 30 days
 		HttpOnly: true,
@@ -955,7 +989,7 @@ func (cs *ChatServer) HandleNewSession(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{
 		"session_id": session.ID,
-		"client_id":  clientID,
+		"user_id":    userID,
 	}); err != nil {
 		log.Printf("Warning: Failed to encode new session response: %v", err)
 	}
@@ -968,8 +1002,8 @@ func (cs *ChatServer) HandleListSessions(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	clientID := getClientID(r)
-	sm := cs.GetSessionManager(clientID)
+	userID := cs.getClientID(r)
+	sm := cs.GetSessionManager(userID)
 	sessions := sm.ListSessions()
 
 	type SessionInfo struct {
@@ -1019,8 +1053,8 @@ func (cs *ChatServer) HandleDeleteSession(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	clientID := getClientID(r)
-	sm := cs.GetSessionManager(clientID)
+	userID := cs.getClientID(r)
+	sm := cs.GetSessionManager(userID)
 
 	sessionID := strings.TrimPrefix(r.URL.Path, "/api/sessions/")
 	if sessionID == "" {
@@ -1072,8 +1106,8 @@ func (cs *ChatServer) HandleGetHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientID := getClientID(r)
-	sm := cs.GetSessionManager(clientID)
+	userID := cs.getClientID(r)
+	sm := cs.GetSessionManager(userID)
 
 	sessionID := strings.TrimPrefix(r.URL.Path, "/api/sessions/")
 	sessionID = strings.TrimSuffix(sessionID, "/history")
@@ -1134,8 +1168,8 @@ func (cs *ChatServer) HandleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientID := getClientID(r)
-	sm := cs.GetSessionManager(clientID)
+	userID := cs.getClientID(r)
+	sm := cs.GetSessionManager(userID)
 
 	log.Printf("Chat request for session %s: %s (stream: %v)", req.SessionID, req.Message, req.Stream)
 
@@ -1202,8 +1236,8 @@ func (cs *ChatServer) HandleChatNonStream(w http.ResponseWriter, r *http.Request
 	cs.metricsCollector.RecordAgentTokenUsage(sessionID, "response", int64(len(response)))
 
 	// Add assistant response to history
-	clientID := getClientID(r)
-	sm := cs.GetSessionManager(clientID)
+	userID := cs.getClientID(r)
+	sm := cs.GetSessionManager(userID)
 	msgID, _ := sm.AddMessage(sessionID, "assistant", response)
 
 	// Send response
@@ -1236,8 +1270,8 @@ func (cs *ChatServer) HandleChatStream(w http.ResponseWriter, r *http.Request, a
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
 
-	clientID := getClientID(r)
-	sm := cs.GetSessionManager(clientID)
+	userID := cs.getClientID(r)
+	sm := cs.GetSessionManager(userID)
 
 	// Send initial event
 	fmt.Fprintf(w, "event: start\ndata: {\"type\": \"start\"}\n\n")
@@ -1287,14 +1321,14 @@ func (cs *ChatServer) HandleGetClientID(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	clientID := getClientID(r)
+	userID := cs.getClientID(r)
 
-	// Set client ID cookie if not already set
-	_, err := r.Cookie("client_id")
+	// Set user ID cookie if not already set
+	_, err := r.Cookie("user_id")
 	if err != nil {
 		http.SetCookie(w, &http.Cookie{
-			Name:     "client_id",
-			Value:    clientID,
+			Name:     "user_id",
+			Value:    userID,
 			Path:     "/",
 			MaxAge:   86400 * 30, // 30 days
 			HttpOnly: true,
@@ -1304,9 +1338,9 @@ func (cs *ChatServer) HandleGetClientID(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{
-		"client_id": clientID,
+		"user_id": userID,
 	}); err != nil {
-		log.Printf("Warning: Failed to encode client ID response: %v", err)
+		log.Printf("Warning: Failed to encode user ID response: %v", err)
 	}
 }
 
@@ -1471,8 +1505,8 @@ func (cs *ChatServer) HandleFeedback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientID := getClientID(r)
-	sm := cs.GetSessionManager(clientID)
+	userID := cs.getClientID(r)
+	sm := cs.GetSessionManager(userID)
 
 	err := sm.UpdateMessageFeedback(req.SessionID, req.MessageID, req.Feedback)
 	if err != nil {
@@ -1552,7 +1586,8 @@ func (cs *ChatServer) Start(staticFS fs.FS) error {
 
 	// Main app route - authenticate first, then serve original index.html
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
+		// Check if this is a route that needs authentication (root or session routes)
+		if r.URL.Path == "/" || strings.HasPrefix(r.URL.Path, "/sessions/") {
 			// Check if user is authenticated
 			token := r.Header.Get("Authorization")
 			if token == "" {
@@ -1579,12 +1614,13 @@ func (cs *ChatServer) Start(staticFS fs.FS) error {
 			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 			return
 		}
+		// For other paths, try to serve index.html (SPA support)
 		cs.HandleIndex(w, r, staticFS)
 	})
 
 	// Protected routes (require authentication)
 	protectedMux := http.NewServeMux()
-	protectedMux.HandleFunc("/api/client-id", cs.HandleGetClientID)
+	protectedMux.HandleFunc("/api/user-id", cs.HandleGetClientID)
 	protectedMux.HandleFunc("/api/auth/me", cs.authAPI.HandleGetCurrentUser)
 	protectedMux.HandleFunc("/api/sessions/new", cs.HandleNewSession)
 	protectedMux.HandleFunc("/api/sessions", cs.HandleListSessions)

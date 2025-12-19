@@ -861,9 +861,47 @@
             });
         }
 
+        // Handle URL-based session loading
+        function loadSessionFromURL() {
+            const pathParts = window.location.pathname.split('/');
+            if (pathParts[1] === 'sessions' && pathParts[2]) {
+                const sessionId = pathParts[2];
+                return sessionId;
+            }
+            return null;
+        }
+
         // Load config and sessions on page load - delay to improve perceived performance
         setTimeout(loadConfig, 0);
-        setTimeout(loadSessions, 100);
+        setTimeout(() => {
+            const urlSessionId = loadSessionFromURL();
+            if (urlSessionId) {
+                loadSessions(false).then(() => {
+                    selectSession(urlSessionId);
+                });
+            } else {
+                loadSessions(true);
+            }
+        }, 100);
+
+        // Handle browser back/forward navigation
+        window.addEventListener('popstate', (event) => {
+            if (event.state && event.state.sessionId) {
+                selectSession(event.state.sessionId);
+            } else {
+                const urlSessionId = loadSessionFromURL();
+                if (!urlSessionId) {
+                    // Clear current session if no session in URL
+                    currentSessionId = null;
+                    document.getElementById('messages').innerHTML = '<div class="welcome"><h2>👋 欢迎!</h2><p>创建或选择一个会话开始聊天。</p></div>';
+                    document.getElementById('message-input').disabled = true;
+                    document.getElementById('send-btn').disabled = true;
+                    document.getElementById('status').textContent = '选择或创建一个会话';
+                    clearArtifacts();
+                    loadSessions(true);
+                }
+            }
+        });
 
         // Enable Enter key to send message
         document.getElementById('message-input').addEventListener('keypress', (e) => {
@@ -972,6 +1010,11 @@
                     document.getElementById('message-input').disabled = false;
                     document.getElementById('send-btn').disabled = false;
                     document.getElementById('status').textContent = '';
+
+                    // Update browser URL for sharing
+                    const newUrl = `/sessions/${data.session_id}`;
+                    history.pushState({ sessionId: data.session_id }, '', newUrl);
+
                     // Load history (will be empty for new session)
                     await loadHistory(data.session_id);
                     // Also load and display the session list in sidebar
@@ -1006,6 +1049,10 @@
             if (selectedItem) {
                 selectedItem.classList.add('active');
             }
+
+            // Update browser URL for sharing
+            const newUrl = `/sessions/${sessionId}`;
+            history.pushState({ sessionId }, '', newUrl);
 
             // Load history
             await loadHistory(sessionId);
@@ -1759,6 +1806,9 @@
                     // Clear artifacts if we're deleting the current session
                     clearArtifacts();
 
+                    // Clear URL when deleting current session
+                    history.pushState(null, '', '/');
+
                     // Auto-create a new session after deleting the current one
                     setTimeout(() => createNewSession(true), 100);
                 } else {
@@ -1799,7 +1849,7 @@
                 // Clear cookies
                 document.cookie = 'access_token=; path=/; max-age=0';
                 document.cookie = 'refresh_token=; path=/; max-age=0';
-                document.cookie = 'client_id=; path=/; max-age=0';
+                document.cookie = 'user_id=; path=/; max-age=0';
 
                 // Redirect to login
                 window.location.href = '/login';

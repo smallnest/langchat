@@ -1,11 +1,10 @@
-# LangGraphGo Chat - 智能聊天应用
+# LangChat - 智能聊天应用平台
 
 一个基于 Go 和 LangGraphGo 的现代化智能聊天应用框架，集成了AI智能体、多会话管理、工具支持和本地持久化存储。
 
 [![License](https://img.shields.io/:license-MIT-blue.svg)](https://opensource.org/license/apache-2-0) [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/smallnest/langchat) [![github actions](https://github.com/smallnest/langchat/actions/workflows/go.yaml/badge.svg)](https://github.com/smallnest/langchat/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/smallnest/langchat)](https://goreportcard.com/report/github.com/smallnest/langchat) 
 
-[English](./README.md) | [简体中文](./README_CN.md)
-
+![](chat.png)
 
 ## ✨ 核心特性
 
