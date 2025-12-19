@@ -1,0 +1,17 @@
+{
+  "id": "2185ca4a-ffe1-4238-b2fa-6d46c94d9c0f",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello",
+      "timestamp": "2025-12-10T12:25:12.372522+08:00"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! How can I assist you today?  😊",
+      "timestamp": "2025-12-10T12:25:13.322807+08:00"
+    }
+  ],
+  "created_at": "2025-12-10T12:23:58.610554+08:00",
+  "updated_at": "2025-12-10T12:25:13.322808+08:00"
+}

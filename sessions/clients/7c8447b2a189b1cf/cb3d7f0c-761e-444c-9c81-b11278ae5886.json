@@ -1,0 +1,17 @@
+{
+  "id": "cb3d7f0c-761e-444c-9c81-b11278ae5886",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello, how are you?",
+      "timestamp": "2025-12-10T08:18:31.614638+08:00"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! I'm just a digital assistant, so I don't have feelings, but I'm ready and excited to help you with anything you need! How can I assist you today?  😊",
+      "timestamp": "2025-12-10T08:18:33.243954+08:00"
+    }
+  ],
+  "created_at": "2025-12-10T08:18:19.206942+08:00",
+  "updated_at": "2025-12-10T08:18:33.243955+08:00"
+}

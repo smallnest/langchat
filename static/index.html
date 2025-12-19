@@ -1,0 +1,2647 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">LangGraphGo 聊天</title>
+    <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon">
+    <!-- Load only essential CSS immediately -->
+    <link rel="stylesheet" href="/static/css/highlight/default.min.css">
+
+    <!-- Lazy load heavy libraries only when needed -->
+    <script>
+        // Lazy loading utilities
+        window.librariesLoading = {};
+        window.librariesLoaded = {};
+
+        function loadLibrary(name, url, onLoad) {
+            if (window.librariesLoaded[name]) {
+                if (onLoad) onLoad();
+                return Promise.resolve();
+            }
+
+            if (window.librariesLoading[name]) {
+                return window.librariesLoading[name];
+            }
+
+            window.librariesLoading[name] = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = url;
+                script.async = true;
+                script.onload = () => {
+                    window.librariesLoaded[name] = true;
+                    if (onLoad) onLoad();
+                    resolve();
+                };
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+
+            return window.librariesLoading[name];
+        }
+
+        // Load marked.js immediately (lightweight and essential)
+        loadLibrary('marked', '/static/lib/marked.umd.min.js');
+
+        // Load highlight.js immediately (relatively small)
+        loadLibrary('highlightjs', '/static/lib/highlight.min.js', () => {
+            console.log('Highlight.js loaded successfully, hljs available:', typeof hljs !== 'undefined');
+        });
+
+        // Lazy load Mermaid (3.3MB, only when needed)
+        window.loadMermaid = function () {
+            return loadLibrary('mermaid', '/static/lib/mermaid.min.js', () => {
+                if (typeof mermaid !== 'undefined') {
+                    mermaid.initialize({
+                        startOnLoad: false,
+                        theme: 'base',
+                        themeVariables: {
+                            primaryColor: 'var(--accent-primary)',
+                            primaryTextColor: 'var(--text-primary)',
+                            primaryBorderColor: 'var(--border-secondary)',
+                            lineColor: 'var(--text-secondary)',
+                            secondaryColor: 'var(--bg-tertiary)',
+                            tertiaryColor: 'var(--bg-secondary)',
+                            background: '#ffffff',
+                            mainBkg: '#ffffff',
+                            secondBkg: 'var(--bg-secondary)',
+                            tertiaryBkg: 'var(--bg-tertiary)'
+                        }
+                    });
+                }
+            });
+        };
+
+        // Lazy load MathJax (only when needed)
+        window.loadMathJax = function () {
+            if (!window.MathJax) {
+                window.MathJax = {
+                    tex: {
+                        inlineMath: [['$', '$'], ['\\(', '\\)']],
+                        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                        processEscapes: true
+                    },
+                    svg: {
+                        fontCache: 'global'
+                    }
+                };
+            }
+            return loadLibrary('mathjax', '/static/lib/tex-svg.js');
+        };
+    </script>
+    <link rel="stylesheet" href="/static/themes/themes.css?v=2">
+    <link rel="stylesheet" href="/static/css/main.css?v=2">
+</head>
+
+<body>
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <div class="collapse-btn" id="collapse-btn" onclick="toggleSidebar()">
+                <svg id="collapse-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
+                    <polyline points="15,18 9,12 15,6"></polyline>
+                </svg>
+            </div>
+            <div class="sidebar-header">
+                <h2>聊天会话</h2>
+                <button class="new-chat-btn" onclick="createNewSession(false)">+ 新建聊天</button>
+            </div>
+            <div class="sessions-list" id="sessions-list">
+                <p style="padding: 20px; text-align: center; color: #7f8c8d;">加载中...</p>
+            </div>
+            <div class="sidebar-footer">
+                <div class="theme-selector-sidebar" id="theme-selector" onclick="showThemeModal()" title="主题设置">
+                    <span class="theme-icon">🎨</span>
+                </div>
+                <div class="code-theme-selector-sidebar" id="code-theme-selector" onclick="showCodeThemeModal()"
+                    title="代码主题">
+                    <span class="code-theme-icon">💻</span>
+                </div>
+                <div class="settings-btn" id="settings-btn" onclick="toggleSettingsMenu()" title="设置">
+                    <span class="settings-icon">⚙️</span>
+                </div>
+            </div>
+            <!-- Settings Dropdown Menu (outside footer) -->
+            <div class="settings-menu" id="settings-menu" style="display: none;">
+                <div class="settings-menu-item">
+                    <label class="settings-toggle">
+                        <span class="settings-label">启用 Skills</span>
+                        <input type="checkbox" id="user-enable-skills" checked onchange="handleSettingsChange()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-menu-item">
+                    <label class="settings-toggle">
+                        <span class="settings-label">启用 MCP</span>
+                        <input type="checkbox" id="user-enable-mcp" checked onchange="handleSettingsChange()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-menu-item">
+                    <label class="settings-toggle">
+                        <span class="settings-label">流式输出</span>
+                        <input type="checkbox" id="user-enable-streaming" checked onchange="handleSettingsChange()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-area">
+            <div class="chat-header">
+                <div class="chat-header-left">
+                    <div class="chat-title-container">
+                        <h1 id="chat-title">LangGraphGo 聊天</h1>
+                        <div class="status" id="status">选择或创建一个会话</div>
+                    </div>
+                </div>
+                <div class="chat-header-right">
+                    <div class="tools-status">
+                        <div class="skills-status" id="skills-status" title="Skills 状态">
+                            <span class="skills-indicator" id="skills-indicator"></span>
+                            <span class="skills-text" id="skills-text">Skills</span>
+                        </div>
+                        <div class="mcp-status" id="mcp-status" title="MCP 工具状态">
+                            <span class="mcp-indicator" id="mcp-indicator"></span>
+                            <span class="mcp-text" id="mcp-text">MCP</span>
+                        </div>
+                    </div>
+                    <div class="logout-btn" id="logout-btn" onclick="logout()" title="退出登录">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div class="messages" id="messages">
+                <div class="welcome">
+                    <h2>👋 欢迎!</h2>
+                    <p>创建或选择一个会话开始聊天。</p>
+                </div>
+            </div>
+            <div class="input-area">
+                <div class="input-container">
+                    <input type="text" id="message-input" placeholder="输入您的消息..." disabled>
+                    <button id="send-btn" onclick="sendMessage()" disabled>发送</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="artifacts-sidebar" id="artifacts-sidebar">
+            <div class="artifacts-collapse-btn" id="artifacts-collapse-btn" onclick="toggleArtifactsSidebar()">
+                <svg id="artifacts-collapse-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <polyline points="9,18 15,12 9,6"></polyline>
+                </svg>
+            </div>
+            <div class="artifacts-header" id="artifacts-header">
+                <h2 id="artifacts-title">Artifacts</h2>
+            </div>
+            <div class="artifacts-content" id="artifacts-content">
+                <div class="no-artifacts">No artifacts in this session</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code Theme Modal -->
+    <div class="modal" id="code-theme-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>💻 代码主题</h2>
+                <button class="modal-close" onclick="closeCodeThemeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="theme-section">
+                    <h3>☀️ 浅色主题</h3>
+                    <div class="theme-grid">
+                        <div class="code-theme-option" onclick="setCodeTheme('default')" data-code-theme="default">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                                <span style="color: #0066cc;">function</span>
+                            </div>
+                            <span>默认</span>
+                        </div>
+                        <div class="code-theme-option" onclick="setCodeTheme('github')" data-code-theme="github">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #ffffff 0%, #f6f8fa 100%);">
+                                <span style="color: #005cc5;">function</span>
+                            </div>
+                            <span>GitHub</span>
+                        </div>
+                        <div class="code-theme-option" onclick="setCodeTheme('atom-one-light')"
+                            data-code-theme="atom-one-light">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);">
+                                <span style="color: #a626a4;">function</span>
+                            </div>
+                            <span>Atom One Light</span>
+                        </div>
+                        <div class="code-theme-option" onclick="setCodeTheme('xcode')" data-code-theme="xcode">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #ffffff 0%, #f7f7f7 100%);">
+                                <span style="color: #aa0d91;">function</span>
+                            </div>
+                            <span>Xcode</span>
+                        </div>
+                        <div class="code-theme-option" onclick="setCodeTheme('vs')" data-code-theme="vs">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);">
+                                <span style="color: #0000ff;">function</span>
+                            </div>
+                            <span>Visual Studio</span>
+                        </div>
+                        <div class="code-theme-option" onclick="setCodeTheme('stackoverflow-light')"
+                            data-code-theme="stackoverflow-light">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #ffffff 0%, #f6f6f6 100%);">
+                                <span style="color: #0077cc;">function</span>
+                            </div>
+                            <span>Stack Overflow</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="theme-section">
+                    <h3>🌙 深色主题</h3>
+                    <div class="theme-grid">
+                        <div class="code-theme-option" onclick="setCodeTheme('monokai')" data-code-theme="monokai">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #272822 0%, #1e1f1c 100%);">
+                                <span style="color: #66d9ef;">function</span>
+                            </div>
+                            <span>Monokai</span>
+                        </div>
+                        <div class="code-theme-option" onclick="setCodeTheme('dracula')" data-code-theme="dracula">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #282a36 0%, #1e1f29 100%);">
+                                <span style="color: #8be9fd;">function</span>
+                            </div>
+                            <span>Dracula</span>
+                        </div>
+                        <div class="code-theme-option" onclick="setCodeTheme('atom-one-dark')"
+                            data-code-theme="atom-one-dark">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #282c34 0%, #21252b 100%);">
+                                <span style="color: #c678dd;">function</span>
+                            </div>
+                            <span>Atom One Dark</span>
+                        </div>
+                        <div class="code-theme-option" onclick="setCodeTheme('vs2015')" data-code-theme="vs2015">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);">
+                                <span style="color: #569cd6;">function</span>
+                            </div>
+                            <span>VS 2015</span>
+                        </div>
+                        <div class="code-theme-option" onclick="setCodeTheme('github-dark')"
+                            data-code-theme="github-dark">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);">
+                                <span style="color: #79c0ff;">function</span>
+                            </div>
+                            <span>GitHub Dark</span>
+                        </div>
+                        <div class="code-theme-option" onclick="setCodeTheme('nord')" data-code-theme="nord">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #2e3440 0%, #3b4252 100%);">
+                                <span style="color: #88c0d0;">function</span>
+                            </div>
+                            <span>Nord</span>
+                        </div>
+                        <div class="code-theme-option" onclick="setCodeTheme('tokyo-night-dark')"
+                            data-code-theme="tokyo-night-dark">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #1a1b26 0%, #16161e 100%);">
+                                <span style="color: #7aa2f7;">function</span>
+                            </div>
+                            <span>Tokyo Night</span>
+                        </div>
+                        <div class="code-theme-option" onclick="setCodeTheme('night-owl')" data-code-theme="night-owl">
+                            <div class="code-theme-preview"
+                                style="background: linear-gradient(135deg, #011627 0%, #001424 100%);">
+                                <span style="color: #c792ea;">function</span>
+                            </div>
+                            <span>Night Owl</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theme Modal -->
+    <div class="modal" id="theme-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🎨 主题设置</h2>
+                <button class="modal-close" onclick="closeThemeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="theme-section">
+                    <h3>☀️ 浅色主题</h3>
+                    <div class="theme-grid">
+                        <div class="theme-option" onclick="setTheme('default-light')" data-theme="default-light">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 50%, #ffffff 100%);">
+                            </div>
+                            <span>青竹绿</span>
+                        </div>
+                        <div class="theme-option" onclick="setTheme('blue-light')" data-theme="blue-light">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #ffffff 100%);">
+                            </div>
+                            <span>天空蓝</span>
+                        </div>
+                        <div class="theme-option" onclick="setTheme('purple-light')" data-theme="purple-light">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 50%, #ffffff 100%);">
+                            </div>
+                            <span>优雅紫</span>
+                        </div>
+                        <div class="theme-option" onclick="setTheme('rose-light')" data-theme="rose-light">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 50%, #ffffff 100%);">
+                            </div>
+                            <span>玫瑰红</span>
+                        </div>
+                        <div class="theme-option" onclick="setTheme('sapphire-light')" data-theme="sapphire-light">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, #f0f4ff 0%, #e6eeff 50%, #ffffff 100%);">
+                            </div>
+                            <span>宝石蓝</span>
+                        </div>
+                        <div class="theme-option" onclick="setTheme('claude-light')" data-theme="claude-light">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fffbeb 100%);">
+                            </div>
+                            <span>古卷黄</span>
+                        </div>
+                        <div class="theme-option" onclick="setTheme('apple-silver')" data-theme="apple-silver">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, #f5f5f7 0%, #e8e8ed 50%, #ffffff 100%);">
+                            </div>
+                            <span>苹果银</span>
+                        </div>
+                        <div class="theme-option" onclick="setTheme('chinese-classic')" data-theme="chinese-classic">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, #f0f4f0 0%, #e8f2e8 50%, #f9f6f0 100%);">
+                            </div>
+                            <span>中国风</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="theme-section">
+                    <h3>🌙 深色主题</h3>
+                    <div class="theme-grid">
+                        <div class="theme-option" onclick="setTheme('modern-dark')" data-theme="modern-dark">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #0f172a 100%);">
+                            </div>
+                            <span>现代黑</span>
+                        </div>
+                        <div class="theme-option" onclick="setTheme('blue-dark')" data-theme="blue-dark">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, #192036 0%, #1e3a5f 50%, #0c1222 100%);">
+                            </div>
+                            <span>深空蓝</span>
+                        </div>
+                        <div class="theme-option" onclick="setTheme('cyberpunk-dark')" data-theme="cyberpunk-dark">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #0a0a0a 100%);">
+                            </div>
+                            <span>赛博朋克</span>
+                        </div>
+                        <div class="theme-option" onclick="setTheme('matrix-dark')" data-theme="matrix-dark">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, #0a0f0a 0%, #001100 50%, #000500 100%);">
+                            </div>
+                            <span>黑客帝国</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skills Modal -->
+    <div class="modal" id="skills-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🎯 Skills</h2>
+                <button class="modal-close" onclick="closeSkillsModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="skills-list" class="hierarchical-list">
+                    <p>加载中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MCP Tools Modal -->
+    <div class="modal" id="mcp-tools-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚡ MCP 工具</h2>
+                <button class="modal-close" onclick="closeMCPToolsModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="mcp-tools-list" class="hierarchical-list">
+                    <p>加载中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+        let mcpTools = [];
+        let skills = [];
+        let hierarchicalData = null;
+        let mcpEnabled = false;
+        let chatConfig = {
+            chatTitle: "LangGraphGo 聊天",
+            enableFeedback: true
+        };
+
+        // Theme Management
+        let currentTheme = localStorage.getItem('chatTheme') || 'default-light';
+
+        // Apply saved theme on load
+        function applyTheme(themeName) {
+            document.documentElement.setAttribute('data-theme', themeName);
+            currentTheme = themeName;
+            localStorage.setItem('chatTheme', themeName);
+
+            // Update active state in theme selector
+            document.querySelectorAll('.theme-option').forEach(option => {
+                option.classList.remove('active');
+                if (option.dataset.theme === themeName) {
+                    option.classList.add('active');
+                }
+            });
+        }
+
+        function setTheme(themeName) {
+            applyTheme(themeName);
+
+            // Auto-switch code theme when main theme changes
+            const isDarkTheme = themeName.includes('dark');
+            autoSwitchCodeTheme(isDarkTheme);
+
+            closeThemeModal();
+        }
+
+        function showThemeModal() {
+            const modal = document.getElementById('theme-modal');
+
+            // Set active state for current theme
+            document.querySelectorAll('.theme-option').forEach(option => {
+                option.classList.remove('active');
+                if (option.dataset.theme === currentTheme) {
+                    option.classList.add('active');
+                }
+            });
+
+            modal.classList.add('show');
+        }
+
+        function closeThemeModal() {
+            const modal = document.getElementById('theme-modal');
+            modal.classList.remove('show');
+        }
+
+        // Code Theme Management
+        let currentCodeTheme = localStorage.getItem('codeTheme') || 'default';
+
+        // Define light and dark code themes
+        const lightCodeThemes = ['default', 'github', 'atom-one-light', 'xcode', 'vs', 'stackoverflow-light'];
+        const darkCodeThemes = ['monokai', 'dracula', 'atom-one-dark', 'vs2015', 'github-dark', 'nord', 'tokyo-night-dark', 'night-owl'];
+
+        // Apply saved code theme on load
+        function applyCodeTheme(themeName) {
+            // Remove old theme link if exists
+            const oldLink = document.getElementById('code-theme-link');
+            if (oldLink) {
+                oldLink.remove();
+            }
+
+            // Add new theme link
+            if (themeName !== 'default') {
+                const link = document.createElement('link');
+                link.id = 'code-theme-link';
+                link.rel = 'stylesheet';
+                link.href = `/static/css/highlight/${themeName}.min.css`;
+                document.head.appendChild(link);
+            } else {
+                // Use default theme (already loaded in head)
+            }
+
+            currentCodeTheme = themeName;
+            localStorage.setItem('codeTheme', themeName);
+
+            // Update active state in code theme selector
+            document.querySelectorAll('.code-theme-option').forEach(option => {
+                option.classList.remove('active');
+                if (option.dataset.codeTheme === themeName) {
+                    option.classList.add('active');
+                }
+            });
+
+            // Re-highlight all code blocks
+            setTimeout(() => {
+                document.querySelectorAll('pre code').forEach((block) => {
+                    if (typeof hljs !== 'undefined') {
+                        hljs.highlightElement(block);
+                    }
+                });
+            }, 100);
+        }
+
+        function autoSwitchCodeTheme(mainThemeIsDark) {
+            // Auto-switch code theme based on main theme
+            const isCurrentCodeThemeDark = darkCodeThemes.includes(currentCodeTheme);
+
+            if (mainThemeIsDark && !isCurrentCodeThemeDark) {
+                // Switch to dark code theme (use monokai as default)
+                applyCodeTheme('monokai');
+            } else if (!mainThemeIsDark && isCurrentCodeThemeDark) {
+                // Switch to light code theme (use default as default)
+                applyCodeTheme('default');
+            }
+        }
+
+        function setCodeTheme(themeName) {
+            applyCodeTheme(themeName);
+            closeCodeThemeModal();
+        }
+
+        function showCodeThemeModal() {
+            const modal = document.getElementById('code-theme-modal');
+
+            // Determine if current theme is dark or light
+            const isDarkTheme = currentTheme.includes('dark');
+
+            // Update modal title
+            const modalTitle = modal.querySelector('.modal-header h2');
+            modalTitle.textContent = isDarkTheme ? '💻 代码主题 - 深色' : '💻 代码主题 - 浅色';
+
+            // Show/hide theme sections based on current theme
+            const lightSection = modal.querySelector('.theme-section:nth-child(1)');
+            const darkSection = modal.querySelector('.theme-section:nth-child(2)');
+
+            if (isDarkTheme) {
+                // Show only dark code themes
+                lightSection.style.display = 'none';
+                darkSection.style.display = 'block';
+            } else {
+                // Show only light code themes
+                lightSection.style.display = 'block';
+                darkSection.style.display = 'none';
+            }
+
+            // Set active state for current code theme
+            document.querySelectorAll('.code-theme-option').forEach(option => {
+                option.classList.remove('active');
+                if (option.dataset.codeTheme === currentCodeTheme) {
+                    option.classList.add('active');
+                }
+            });
+
+            modal.classList.add('show');
+        }
+
+        function closeCodeThemeModal() {
+            const modal = document.getElementById('code-theme-modal');
+            modal.classList.remove('show');
+        }
+
+        // User Settings Management
+        let userSettings = {
+            enableSkills: true,
+            enableMCP: true,
+            enableStreaming: true  // New setting for streaming
+        };
+
+        // Update tools icons visibility based on user settings
+        function updateToolsIconsVisibility() {
+            const skillsStatus = document.getElementById('skills-status');
+            const mcpStatus = document.getElementById('mcp-status');
+
+            if (skillsStatus) {
+                skillsStatus.style.display = userSettings.enableSkills ? 'flex' : 'none';
+            }
+            if (mcpStatus) {
+                mcpStatus.style.display = userSettings.enableMCP ? 'flex' : 'none';
+            }
+        }
+
+        // Load user settings from localStorage
+        function loadUserSettings() {
+            const saved = localStorage.getItem('userSettings');
+            if (saved) {
+                userSettings = JSON.parse(saved);
+            }
+
+            // Update checkbox states
+            const skillsCheckbox = document.getElementById('user-enable-skills');
+            const mcpCheckbox = document.getElementById('user-enable-mcp');
+            const streamingCheckbox = document.getElementById('user-enable-streaming');
+
+            if (skillsCheckbox) {
+                skillsCheckbox.checked = userSettings.enableSkills;
+            }
+            if (mcpCheckbox) {
+                mcpCheckbox.checked = userSettings.enableMCP;
+            }
+            if (streamingCheckbox) {
+                streamingCheckbox.checked = userSettings.enableStreaming;
+            }
+
+            // Update icons visibility
+            updateToolsIconsVisibility();
+        }
+
+        // Save user settings to localStorage
+        function saveUserSettings() {
+            localStorage.setItem('userSettings', JSON.stringify(userSettings));
+            console.log('User settings saved:', userSettings);
+        }
+
+        // Toggle settings menu
+        function toggleSettingsMenu() {
+            const menu = document.getElementById('settings-menu');
+            if (menu.style.display === 'none' || menu.style.display === '') {
+                menu.style.display = 'block';
+            } else {
+                menu.style.display = 'none';
+            }
+        }
+
+        // Close settings menu when clicking outside
+        document.addEventListener('click', function (event) {
+            const settingsBtn = document.getElementById('settings-btn');
+            const settingsMenu = document.getElementById('settings-menu');
+
+            if (settingsMenu && settingsBtn) {
+                // Check if click is outside both button and menu
+                if (!settingsBtn.contains(event.target) && !settingsMenu.contains(event.target)) {
+                    settingsMenu.style.display = 'none';
+                }
+            }
+        });
+
+        // Handle settings changes
+        function handleSettingsChange() {
+            const skillsCheckbox = document.getElementById('user-enable-skills');
+            const mcpCheckbox = document.getElementById('user-enable-mcp');
+            const streamingCheckbox = document.getElementById('user-enable-streaming');
+
+            if (skillsCheckbox) {
+                userSettings.enableSkills = skillsCheckbox.checked;
+            }
+            if (mcpCheckbox) {
+                userSettings.enableMCP = mcpCheckbox.checked;
+            }
+            if (streamingCheckbox) {
+                userSettings.enableStreaming = streamingCheckbox.checked;
+            }
+
+            saveUserSettings();
+
+            // Update icons visibility immediately
+            updateToolsIconsVisibility();
+        }
+
+        // Load chat configuration
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                if (response.ok) {
+                    const config = await response.json();
+                    chatConfig = config;
+
+                    // Update page title
+                    document.getElementById('page-title').textContent = config.chatTitle;
+
+                    // Update chat title in header
+                    const chatTitleElement = document.getElementById('chat-title');
+                    if (chatTitleElement) {
+                        chatTitleElement.textContent = config.chatTitle;
+                    }
+
+                    if (config.appLogo) {
+                        const headerLeft = document.querySelector('.chat-header-left');
+                        // Check if logo already exists
+                        let logoImg = document.getElementById('app-logo');
+                        if (!logoImg) {
+                            logoImg = document.createElement('img');
+                            logoImg.id = 'app-logo';
+                            logoImg.className = 'app-logo';
+                            logoImg.alt = 'Logo';
+                            // Insert before title container
+                            const titleContainer = headerLeft.querySelector('.chat-title-container');
+                            headerLeft.insertBefore(logoImg, titleContainer);
+                        }
+                        logoImg.src = config.appLogo;
+                    }
+                }
+            } catch (error) {
+                console.log('Failed to load config:', error);
+                // Use default values
+            }
+        }
+
+        // Initialize artifacts sidebar as collapsed by default
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load configuration first
+            loadConfig();
+
+            // Load user settings
+            loadUserSettings();
+
+            // Apply saved theme
+            applyTheme(currentTheme);
+
+            // Apply saved code theme and ensure it matches the main theme type
+            const isDarkTheme = currentTheme.includes('dark');
+            const isCurrentCodeThemeDark = darkCodeThemes.includes(currentCodeTheme);
+
+            // If code theme doesn't match main theme, auto-switch
+            if (isDarkTheme && !isCurrentCodeThemeDark) {
+                applyCodeTheme('monokai');
+            } else if (!isDarkTheme && isCurrentCodeThemeDark) {
+                applyCodeTheme('default');
+            } else {
+                applyCodeTheme(currentCodeTheme);
+            }
+
+            const artifactsSidebar = document.getElementById('artifacts-sidebar');
+            if (artifactsSidebar) {
+                artifactsSidebar.classList.add('collapsed');
+                isArtifactsOpen = false; // Ensure state is consistent
+            }
+
+            // Add click listener to Skills status
+            const skillsStatus = document.getElementById('skills-status');
+            if (skillsStatus) {
+                skillsStatus.addEventListener('click', showSkillsModal);
+            }
+
+            // Add click listener to MCP status
+            const mcpStatus = document.getElementById('mcp-status');
+            if (mcpStatus) {
+                mcpStatus.addEventListener('click', showMCPToolsModal);
+            }
+
+            // Add event delegation for artifact placeholders
+            const messagesContainer = document.getElementById('messages');
+            if (messagesContainer) {
+                messagesContainer.addEventListener('click', function(e) {
+                    const artifactPlaceholder = e.target.closest('.artifact-placeholder');
+                    if (artifactPlaceholder) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const artifactId = artifactPlaceholder.getAttribute('data-artifact-id');
+                        console.log('Artifact clicked via delegation:', artifactId);
+                        openArtifactsModal();
+                        showArtifact(artifactId);
+                    }
+                });
+            }
+        });
+        let sidebarCollapsed = false;
+        let artifacts = new Map(); // Store artifacts by ID
+        let currentArtifactId = null; // Track currently displayed artifact
+
+        // Format datetime function
+        function formatDateTime(date) {
+            const now = new Date();
+            const inputDate = new Date(date);
+
+            // Check if it's today
+            if (inputDate.toDateString() === now.toDateString()) {
+                return '今天 ' + inputDate.toLocaleTimeString('zh-CN', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+
+            // Check if it's yesterday
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (inputDate.toDateString() === yesterday.toDateString()) {
+                return '昨天 ' + inputDate.toLocaleTimeString('zh-CN', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+
+            // Check if it's within this week
+            const weekAgo = new Date(now);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            if (inputDate >= weekAgo) {
+                const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+                return weekdays[inputDate.getDay()] + ' ' + inputDate.toLocaleTimeString('zh-CN', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+
+            // For older dates, show full date
+            return inputDate.toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }) + ' ' + inputDate.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Load config and sessions on page load - delay to improve perceived performance
+        setTimeout(loadConfig, 0);
+        setTimeout(loadSessions, 100);
+
+        // Enable Enter key to send message
+        document.getElementById('message-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        async function loadSessions(createIfEmpty = true) {
+            const sessionsList = document.getElementById('sessions-list');
+            // Show loading state immediately
+            if (sessionsList.children.length === 0) {
+                sessionsList.innerHTML = '<p style="padding: 20px; text-align: center; color: #7f8c8d;">加载中...</p>';
+            }
+
+            try {
+                // Use a timeout to prevent long waiting
+                const response = await Promise.race([
+                    fetch('/api/sessions'),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Timeout')), 5000)
+                    )
+                ]);
+
+                const sessions = await response.json();
+                sessionsList.innerHTML = '';
+
+                // Only create a new session on first load if requested
+                if (createIfEmpty && !currentSessionId) {
+                    sessionsList.innerHTML = '<p style="padding: 20px; text-align: center; color: #7f8c8d;">创建新会话中...</p>';
+                    // Use setTimeout to not block the UI
+                    setTimeout(() => createNewSession(true), 50);
+                    return;
+                }
+
+                // Otherwise, just load and display all sessions
+                await loadSessionList();
+            } catch (error) {
+                console.error('Failed to load sessions:', error);
+                if (sessionsList.innerHTML.includes('加载中')) {
+                    sessionsList.innerHTML = '<p style="padding: 20px; text-align: center; color: #e74c3c;">加载失败，请刷新页面</p>';
+                }
+            }
+        }
+
+        async function loadSessionList() {
+            const sessionsList = document.getElementById('sessions-list');
+
+            try {
+                // Use a timeout to prevent long waiting
+                const response = await Promise.race([
+                    fetch('/api/sessions'),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Timeout')), 5000)
+                    )
+                ]);
+
+                const sessions = await response.json();
+                sessionsList.innerHTML = '';
+
+                // Filter out sessions with 0 messages
+                const filteredSessions = sessions.filter(session => {
+                    const messageCount = session.message_count !== undefined ? session.message_count : 0;
+                    return messageCount > 0;
+                });
+
+                filteredSessions.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+                filteredSessions.forEach(session => {
+                    const item = document.createElement('div');
+                    item.className = 'session-item' + (session.id === currentSessionId ? ' active' : '');
+                    item.setAttribute('data-session-id', session.id);
+                    const messageCount = session.message_count !== undefined ? session.message_count : 0;
+                    item.innerHTML = `
+                        <div class="session-title">${session.title || '新会话'}</div>
+                        <div class="session-meta-row">
+                            <div class="session-meta">${messageCount} 条消息 • ${formatDate(session.updated_at)}</div>
+                            <button class="session-action-btn delete-btn" onclick="deleteSession('${session.id}', event)">删除</button>
+                        </div>
+                    `;
+                    item.onclick = () => selectSession(session.id);
+                    sessionsList.appendChild(item);
+                });
+
+                // If no sessions with messages, show a message
+                if (filteredSessions.length === 0 && currentSessionId) {
+                    sessionsList.innerHTML = '<p style="padding: 20px; text-align: center; color: #7f8c8d;">暂无历史会话</p>';
+                }
+            } catch (error) {
+                console.error('Failed to load session list:', error);
+                if (sessionsList.innerHTML.includes('加载中')) {
+                    sessionsList.innerHTML = '<p style="padding: 20px; text-align: center; color: #e74c3c;">加载失败，请刷新页面</p>';
+                }
+            }
+        }
+
+        async function createNewSession(autoSelect = false) {
+            try {
+                const response = await fetch('/api/sessions/new', { method: 'POST' });
+                const data = await response.json();
+
+                if (autoSelect) {
+                    // For auto-created sessions, set as current and load history
+                    currentSessionId = data.session_id;
+                    document.getElementById('message-input').disabled = false;
+                    document.getElementById('send-btn').disabled = false;
+                    document.getElementById('status').textContent = '';
+                    // Load history (will be empty for new session)
+                    await loadHistory(data.session_id);
+                    // Also load and display the session list in sidebar
+                    await loadSessionList();
+                } else {
+                    // For manual clicks, reload the session list without auto-creating
+                    await loadSessions(false);
+                    selectSession(data.session_id);
+                }
+            } catch (error) {
+                console.error('Failed to create session:', error);
+                alert('Failed to create new session');
+            }
+        }
+
+        async function selectSession(sessionId) {
+            // Clear and save current artifacts before switching
+            clearArtifacts();
+
+            currentSessionId = sessionId;
+            document.getElementById('message-input').disabled = false;
+            document.getElementById('send-btn').disabled = false;
+            document.getElementById('status').textContent = ``;
+
+            // Update UI
+            document.querySelectorAll('.session-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // Find and highlight the selected session
+            const selectedItem = document.querySelector(`[data-session-id="${sessionId}"]`);
+            if (selectedItem) {
+                selectedItem.classList.add('active');
+            }
+
+            // Load history
+            await loadHistory(sessionId);
+
+            // Update MCP status for the new session
+            await updateToolsStatus();
+        }
+
+        async function loadHistory(sessionId) {
+            try {
+                const response = await fetch(`/api/sessions/${sessionId}/history`);
+                const messages = await response.json();
+
+                const messagesDiv = document.getElementById('messages');
+                messagesDiv.innerHTML = '';
+
+                // Clear artifacts before loading history
+                artifacts.clear();
+
+                if (messages.length === 0) {
+                    // Show welcome message for new empty sessions
+                    messagesDiv.innerHTML = '<div class="welcome"><h2>👋 欢迎!</h2><p>开始您的对话吧！</p></div>';
+                } else {
+                    for (const msg of messages) {
+                        await addMessageToUI(msg.role, msg.content, msg.timestamp, msg.id, msg.feedback);
+                    }
+                }
+
+                scrollToBottom();
+            } catch (error) {
+                console.error('Failed to load history:', error);
+            }
+        }
+
+        async function sendMessage() {
+            if (!currentSessionId) return;
+
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Disable input
+            input.disabled = true;
+            document.getElementById('send-btn').disabled = true;
+
+            // Add user message to UI
+            await addMessageToUI('user', message, new Date());
+            input.value = '';
+
+            // Check if streaming is enabled
+            if (userSettings.enableStreaming) {
+                await sendStreamingMessage(message);
+            } else {
+                await sendNormalMessage(message);
+            }
+
+            // Re-enable input
+            input.disabled = false;
+            document.getElementById('send-btn').disabled = false;
+            input.focus();
+
+            // Reload sessions to update message count
+            loadSessions();
+        }
+
+        async function sendNormalMessage(message) {
+            // Show typing indicator
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message assistant';
+            typingDiv.innerHTML = `
+                <div class="message-content typing-indicator">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(typingDiv);
+            scrollToBottom();
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        message: message,
+                        user_settings: {
+                            enable_skills: userSettings.enableSkills,
+                            enable_mcp: userSettings.enableMCP
+                        },
+                        stream: false
+                    })
+                });
+
+                const data = await response.json();
+
+                // Remove typing indicator
+                typingDiv.remove();
+
+                // Add assistant response
+                await addMessageToUI('assistant', data.response, new Date(), data.message_id);
+            } catch (error) {
+                console.error('Failed to send message:', error);
+                typingDiv.remove();
+                addErrorMessage('Failed to get response. Please try again.');
+            }
+        }
+
+        async function sendStreamingMessage(message) {
+            // Ensure marked is loaded
+            await window.librariesLoading['marked'];
+
+            // Create message container for streaming response
+            let messageDiv = null;
+            let messageContentDiv = null;
+            let responseText = '';
+            let streamComplete = false;
+            let renderTimeout = null;
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        message: message,
+                        user_settings: {
+                            enable_skills: userSettings.enableSkills,
+                            enable_mcp: userSettings.enableMCP
+                        },
+                        stream: true
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.trim() === '') continue;
+
+                        if (line.startsWith('event: ')) {
+                            // Skip event line
+                            continue;
+                        }
+
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+
+                                if (data.type === 'start') {
+                                    // Create the message div when stream starts
+                                    messageDiv = document.createElement('div');
+                                    messageDiv.className = 'message assistant';
+
+                                    // Create Avatar
+                                    const avatarDiv = document.createElement('div');
+                                    avatarDiv.className = 'avatar assistant-avatar';
+                                    avatarDiv.innerHTML = '<img src="/static/images/robot.png" alt="AI">';
+
+                                    messageContentDiv = document.createElement('div');
+                                    messageContentDiv.className = 'message-content';
+                                    messageContentDiv.innerHTML = '';
+
+                                    messageDiv.appendChild(avatarDiv);
+                                    messageDiv.appendChild(messageContentDiv);
+                                    document.getElementById('messages').appendChild(messageDiv);
+                                    scrollToBottom();
+                                } else if (data.type === 'chunk') {
+                                    // Append chunk to message
+                                    responseText += data.chunk;
+                                    if (messageContentDiv) {
+                                        // Clear any pending render
+                                        if (renderTimeout) {
+                                            clearTimeout(renderTimeout);
+                                        }
+
+                                        // Show text content immediately for smooth typing effect
+                                        messageContentDiv.textContent = responseText;
+
+                                        // Scroll to bottom
+                                        scrollToBottom();
+
+                                        // Debounced render attempt - only render if we have potential complete markdown blocks
+                                        renderTimeout = setTimeout(() => {
+                                            attemptMarkdownRender(responseText, messageContentDiv);
+                                        }, 300);
+                                    }
+                                } else if (data.type === 'end') {
+                                    // Mark stream as complete
+                                    streamComplete = true;
+
+                                    // Stream complete - finalize the message
+                                    responseText = data.message || responseText;
+                                    const messageId = data.message_id;
+
+                                    if (messageContentDiv) {
+                                        // Process the complete content
+                                        const result = extractArtifacts(responseText);
+
+                                        // Store artifacts
+                                        result.artifacts.forEach(artifact => {
+                                            console.log('Adding artifact:', artifact.id, artifact);
+                    artifacts.set(artifact.id, artifact);
+                                        });
+
+                                        // Parse Markdown now that we have the complete message
+                                        let processedContent = marked.parse(result.content);
+
+                                        // Find and replace artifact markers
+                                        const markerRegex = /<!-- ARTIFACT:(.*?) -->/g;
+                                            processedContent = processedContent.replace(markerRegex, (match, artifactId) => {
+                                                const artifact = artifacts.get(artifactId);
+                                                if (artifact) {
+                                                    return `<div class="artifact-placeholder" data-artifact-id="${artifactId}">
+                                                    <span class="artifact-placeholder-icon">${getTypeIcon(artifact.type)}</span>
+                                                    <div class="artifact-placeholder-text">
+                                                        <div class="artifact-placeholder-label">Artifact</div>
+                                                        <div class="artifact-placeholder-title">${artifact.title}</div>
+                                                    </div>
+                                                    <span class="artifact-placeholder-arrow">→</span>
+                                                </div>`;
+                                                }
+                                                return match;
+                                            });
+
+                                        messageContentDiv.innerHTML = processedContent;
+
+                                        // Add footer with time and copy button
+                                        const footer = document.createElement('div');
+                                        footer.className = 'message-footer';
+
+                                        const timeDiv = document.createElement('div');
+                                        timeDiv.className = 'message-time';
+                                        timeDiv.textContent = formatDateTime(new Date());
+
+                                        const copyBtn = document.createElement('div');
+                                        copyBtn.className = 'copy-btn';
+                                        copyBtn.innerHTML = '&#x1f4cb; <span>复制</span>';
+                                        copyBtn.setAttribute('data-raw-content', responseText);
+                                        copyBtn.onclick = (e) => copyToClipboard(e);
+
+                                        footer.appendChild(timeDiv);
+                                        footer.appendChild(copyBtn);
+
+                                        // Add feedback buttons
+                                        if (chatConfig.enableFeedback && messageId) {
+                                            const feedbackActions = document.createElement('div');
+                                            feedbackActions.className = 'feedback-actions';
+
+                                            const likeBtn = document.createElement('button');
+                                            likeBtn.className = 'feedback-btn';
+                                            likeBtn.innerHTML = '👍';
+                                            likeBtn.title = 'Like';
+                                            likeBtn.onclick = () => sendFeedback(messageId, 'like', likeBtn);
+
+                                            const dislikeBtn = document.createElement('button');
+                                            dislikeBtn.className = 'feedback-btn';
+                                            dislikeBtn.innerHTML = '👎';
+                                            dislikeBtn.title = 'Dislike';
+                                            dislikeBtn.onclick = () => sendFeedback(messageId, 'dislike', dislikeBtn);
+
+                                            feedbackActions.appendChild(likeBtn);
+                                            feedbackActions.appendChild(dislikeBtn);
+                                            footer.appendChild(feedbackActions);
+                                        }
+
+                                        messageContentDiv.appendChild(footer);
+
+                                        // Process MathJax, Mermaid, and Highlight.js
+                                        await processSpecialContent(messageDiv, responseText);
+
+                                        // Update artifacts display if sidebar is open
+                                        if (isArtifactsOpen) {
+                                            updateArtifactsDisplay();
+                                        }
+
+                                        // Add click handlers for artifact placeholders
+                                        const placeholders = messageDiv.querySelectorAll('.artifact-placeholder');
+                                        placeholders.forEach(placeholder => {
+                                            placeholder.addEventListener('click', function (e) {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                const artifactId = this.getAttribute('data-artifact-id');
+                                                openArtifactsModal();
+                                                showArtifact(artifactId);
+                                            });
+                                        });
+                                    }
+                                } else if (data.type === 'error') {
+                                    // Handle error
+                                    streamComplete = true;
+                                    addErrorMessage(data.error || 'An error occurred during streaming');
+                                }
+                            } catch (e) {
+                                console.error('Error parsing SSE data:', e);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to send streaming message:', error);
+                streamComplete = true;
+                // Remove the streaming message if it exists
+                if (messageDiv) {
+                    messageDiv.remove();
+                }
+                addErrorMessage('Failed to get response. Please try again.');
+            } finally {
+                // Clear any pending render timeout
+                if (renderTimeout) {
+                    clearTimeout(renderTimeout);
+                }
+
+                // Ensure input is re-enabled if stream wasn't completed properly
+                if (!streamComplete) {
+                    console.warn('Stream ended without completion signal');
+                    // If we have partial content, try to finalize it
+                    if (messageDiv && messageContentDiv && responseText) {
+                        // Try to render whatever markdown we have
+                        attemptMarkdownRender(responseText, messageContentDiv);
+
+                        // Add a basic footer to indicate incomplete response
+                        const footer = document.createElement('div');
+                        footer.className = 'message-footer';
+
+                        const timeDiv = document.createElement('div');
+                        timeDiv.className = 'message-time';
+                        timeDiv.textContent = formatDateTime(new Date()) + ' (响应未完成)';
+
+                        const copyBtn = document.createElement('div');
+                        copyBtn.className = 'copy-btn';
+                        copyBtn.innerHTML = '&#x1f4cb; <span>复制</span>';
+                        copyBtn.setAttribute('data-raw-content', responseText);
+                        copyBtn.onclick = (e) => copyToClipboard(e);
+
+                        footer.appendChild(timeDiv);
+                        footer.appendChild(copyBtn);
+                        messageContentDiv.appendChild(footer);
+                    }
+                }
+            }
+        }
+
+        function attemptMarkdownRender(text, messageContentDiv) {
+            // Check if marked is loaded
+            if (typeof marked === 'undefined') return;
+
+            // Only attempt to render if we have what looks like complete markdown blocks
+            // Check for code blocks, lists, headers, etc. that are properly closed
+            const hasCodeBlock = text.includes('```');
+            const hasHeaders = /^#+\s/m.test(text);
+            const hasLists = /^[\-\*\+]\s/m.test(text) || /^\d+\.\s/m.test(text);
+            const hasLinks = /\[.*?\]\(.*?\)/.test(text);
+            const hasDetails = text.includes('<details');
+
+            // If we don't have markdown features, just keep as plain text
+            if (!hasCodeBlock && !hasHeaders && !hasLists && !hasLinks && !hasDetails) {
+                return;
+            }
+
+            // For code blocks, check if they're properly closed
+            if (hasCodeBlock) {
+                const codeBlockMatches = text.match(/```/g);
+                if (codeBlockMatches && codeBlockMatches.length % 2 !== 0) {
+                    // Unclosed code block, don't render yet
+                    return;
+                }
+            }
+
+            // Try rendering a snapshot of the current content
+            try {
+                const snapshot = text;
+                const result = extractArtifacts(snapshot);
+                let processedContent = marked.parse(result.content);
+
+                // Replace artifact markers if any
+                const markerRegex = /<!-- ARTIFACT:(.*?) -->/g;
+                processedContent = processedContent.replace(markerRegex, (match, artifactId) => {
+                    const artifact = artifacts.get(artifactId);
+                    if (artifact) {
+                        return `<div class="artifact-placeholder" data-artifact-id="${artifactId}">
+                            <span class="artifact-placeholder-icon">${getTypeIcon(artifact.type)}</span>
+                            <div class="artifact-placeholder-text">
+                                <div class="artifact-placeholder-label">Artifact</div>
+                                <div class="artifact-placeholder-title">${artifact.title}</div>
+                            </div>
+                            <span class="artifact-placeholder-arrow">→</span>
+                        </div>`;
+                    }
+                    return match;
+                });
+
+                // Only update if the content is different and looks valid
+                if (processedContent !== messageContentDiv.innerHTML && !processedContent.includes('<p><code>')) {
+                    messageContentDiv.innerHTML = processedContent;
+
+                    // Highlight code blocks if any
+                    if (typeof hljs !== 'undefined') {
+                        messageContentDiv.querySelectorAll('pre code').forEach((block) => {
+                            hljs.highlightElement(block);
+                        });
+                    }
+                }
+            } catch (e) {
+                // If parsing fails, just keep as plain text
+                console.debug('Markdown parse failed during streaming:', e);
+            }
+        }
+
+        async function sendFeedback(messageId, feedback, btnElement) {
+            if (!currentSessionId || !messageId) return;
+
+            try {
+                // Determine current state
+                const isLike = feedback === 'like';
+                const isDislike = feedback === 'dislike';
+                const parent = btnElement.parentElement;
+
+                // Reset UI in the same group
+                parent.querySelectorAll('.feedback-btn').forEach(btn => btn.classList.remove('active'));
+
+                // Call API
+                const response = await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        message_id: messageId,
+                        feedback: feedback
+                    })
+                });
+
+                if (response.ok) {
+                    // Update UI
+                    btnElement.classList.add('active');
+                } else {
+                    console.error('Failed to send feedback');
+                }
+            } catch (error) {
+                console.error('Error sending feedback:', error);
+            }
+        }
+
+        async function processSpecialContent(messageDiv, content) {
+            // Check if message contains math formulas and load MathJax if needed
+            if (content.includes('$') || content.includes('\\[') || content.includes('\\(')) {
+                await window.loadMathJax();
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    try {
+                        await window.MathJax.typesetPromise([messageDiv]);
+                    } catch (e) {
+                        console.error("MathJax rendering error:", e);
+                    }
+                }
+            }
+
+            // Check if message contains Mermaid diagrams
+            const mermaidCodeBlocks = messageDiv.querySelectorAll('pre code.language-mermaid');
+            if (mermaidCodeBlocks.length > 0) {
+                await window.loadMermaid();
+
+                for (const codeBlock of mermaidCodeBlocks) {
+                    const code = codeBlock.textContent;
+                    const mermaidDiv = document.createElement('div');
+                    mermaidDiv.className = 'mermaid';
+                    mermaidDiv.textContent = code;
+                    codeBlock.parentNode.replaceWith(mermaidDiv);
+                }
+
+                if (typeof mermaid !== 'undefined') {
+                    try {
+                        await mermaid.run({
+                            nodes: messageDiv.querySelectorAll('.mermaid')
+                        });
+                    } catch (e) {
+                        console.error("Mermaid rendering error:", e);
+                    }
+                }
+            }
+
+            // Highlight code blocks
+            if (typeof hljs !== 'undefined') {
+                messageDiv.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            }
+        }
+
+        async function addMessageToUI(role, content, timestamp, messageId = null, feedback = null) {
+            // Ensure marked is loaded
+            try {
+                if (window.librariesLoading['marked']) {
+                    await window.librariesLoading['marked'];
+                }
+            } catch (e) {
+                console.warn('Marked library failed to load:', e);
+            }
+
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            // Create Avatar
+            const avatarDiv = document.createElement('div');
+            avatarDiv.className = 'avatar';
+            if (role === 'assistant') {
+                avatarDiv.innerHTML = '<img src="/static/images/robot.png" alt="AI">';
+            } else {
+                avatarDiv.innerHTML = '<span>You</span>';
+            }
+
+            const time = formatDateTime(timestamp);
+            let processedContent = '';
+            let extractedArtifacts = [];
+
+            if (role === 'assistant') {
+                console.log('addMessageToUI: processing assistant message, content length:', content.length);
+                console.log('addMessageToUI: content preview:', content.substring(0, 200) + '...');
+
+                // First extract artifacts from content
+                const result = extractArtifacts(content);
+                extractedArtifacts = result.artifacts;
+
+                console.log('Extracted artifacts:', extractedArtifacts); // Debug log
+                console.log('Current session ID:', currentSessionId); // Debug log
+                console.log('Total artifacts in map:', artifacts.size);
+
+                // Store artifacts
+                extractedArtifacts.forEach(artifact => {
+                    console.log('Adding artifact:', artifact.id, artifact);
+                    artifacts.set(artifact.id, artifact);
+                });
+
+                console.log('All artifacts after adding:', Array.from(artifacts.entries())); // Debug log
+
+                // Parse Markdown (this will convert code blocks to HTML)
+                if (typeof marked !== 'undefined') {
+                    processedContent = marked.parse(result.content);
+                } else {
+                    processedContent = escapeHtml(result.content);
+                }
+
+                // Find and replace artifact markers in the parsed HTML
+                const markerRegex = /<!-- ARTIFACT:(.*?) -->/g;
+                processedContent = processedContent.replace(markerRegex, (match, artifactId) => {
+                    const artifact = artifacts.get(artifactId);
+                    if (artifact) {
+                        return `<div class="artifact-placeholder" data-artifact-id="${artifactId}">
+                                    <span class="artifact-placeholder-icon">${getTypeIcon(artifact.type)}</span>
+                                    <div class="artifact-placeholder-text">
+                                        <div class="artifact-placeholder-label">Artifact</div>
+                                        <div class="artifact-placeholder-title">${artifact.title}</div>
+                                    </div>
+                                    <span class="artifact-placeholder-arrow">→</span>
+                                </div>`;
+                    }
+                    return match;
+                });
+
+                // Update artifacts display
+                if (isArtifactsOpen) {
+                    updateArtifactsDisplay();
+                }
+            } else {
+                // Escape HTML for user messages
+                processedContent = escapeHtml(content);
+            }
+            const messageContentDiv = document.createElement('div');
+            messageContentDiv.className = 'message-content';
+
+            if (role === 'assistant') {
+                const copyBtn = document.createElement('div');
+                copyBtn.className = 'copy-btn';
+                copyBtn.innerHTML = '&#x1f4cb; <span>复制</span>';
+                copyBtn.setAttribute('data-raw-content', content);
+                copyBtn.onclick = (e) => copyToClipboard(e);
+
+                const footer = document.createElement('div');
+                footer.className = 'message-footer';
+
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'message-time';
+                timeDiv.textContent = time;
+
+                footer.appendChild(timeDiv);
+                footer.appendChild(copyBtn);
+
+                if (chatConfig.enableFeedback && messageId) {
+                    const feedbackActions = document.createElement('div');
+                    feedbackActions.className = 'feedback-actions';
+
+                    const likeBtn = document.createElement('button');
+                    likeBtn.className = `feedback-btn ${feedback === 'like' ? 'active' : ''}`;
+                    likeBtn.innerHTML = '👍';
+                    likeBtn.title = 'Like';
+                    likeBtn.onclick = () => sendFeedback(messageId, 'like', likeBtn);
+
+                    const dislikeBtn = document.createElement('button');
+                    dislikeBtn.className = `feedback-btn ${feedback === 'dislike' ? 'active' : ''}`;
+                    dislikeBtn.innerHTML = '👎';
+                    dislikeBtn.title = 'Dislike';
+                    dislikeBtn.onclick = () => sendFeedback(messageId, 'dislike', dislikeBtn);
+
+                    feedbackActions.appendChild(likeBtn);
+                    feedbackActions.appendChild(dislikeBtn);
+                    footer.appendChild(feedbackActions);
+                }
+
+                messageContentDiv.innerHTML = processedContent;
+                messageContentDiv.appendChild(footer);
+
+            } else {
+                messageContentDiv.innerHTML = `
+                    ${processedContent}
+                    <div class="message-time">${time}</div>
+                `;
+            }
+
+            if (role === 'assistant') {
+                messageDiv.appendChild(avatarDiv);
+                messageDiv.appendChild(messageContentDiv);
+            } else {
+                messageDiv.appendChild(messageContentDiv);
+                messageDiv.appendChild(avatarDiv);
+            }
+
+            messagesDiv.appendChild(messageDiv);
+
+            // Add click handler for artifact placeholders
+            const placeholders = messageDiv.querySelectorAll('.artifact-placeholder');
+            placeholders.forEach(placeholder => {
+                // Add click handler
+                placeholder.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const artifactId = this.getAttribute('data-artifact-id');
+                    console.log('Artifact clicked:', artifactId); // Debug log
+                    openArtifactsModal();
+                    showArtifact(artifactId);
+                });
+            });
+
+            // Process MathJax, Mermaid, and Highlight.js
+            if (role === 'assistant') {
+                // Check if message contains math formulas and load MathJax if needed
+                if (processedContent.includes('$') || processedContent.includes('\\[') || processedContent.includes('\\(')) {
+                    await window.loadMathJax();
+                    if (window.MathJax && window.MathJax.typesetPromise) {
+                        try {
+                            await window.MathJax.typesetPromise([messageDiv]);
+                        } catch (e) {
+                            console.error("MathJax rendering error:", e);
+                        }
+                    }
+                }
+
+                // Check if message contains Mermaid diagrams
+                const mermaidCodeBlocks = messageDiv.querySelectorAll('pre code.language-mermaid');
+                if (mermaidCodeBlocks.length > 0) {
+                    await window.loadMermaid();
+
+                    for (const codeBlock of mermaidCodeBlocks) {
+                        const code = codeBlock.textContent;
+                        const mermaidDiv = document.createElement('div');
+                        mermaidDiv.className = 'mermaid';
+                        mermaidDiv.textContent = code;
+                        codeBlock.parentNode.replaceWith(mermaidDiv);
+                    }
+
+                    if (typeof mermaid !== 'undefined') {
+                        try {
+                            await mermaid.run({
+                                nodes: messageDiv.querySelectorAll('.mermaid')
+                            });
+                        } catch (e) {
+                            console.error("Mermaid rendering error:", e);
+                        }
+                    }
+                }
+
+                // Highlight code blocks (wait for highlight.js if needed)
+                if (typeof hljs !== 'undefined') {
+                    messageDiv.querySelectorAll('pre code').forEach((block) => {
+                        hljs.highlightElement(block);
+                    });
+                } else {
+                    // Wait for highlight.js to load
+                    await window.librariesLoading['highlightjs'];
+                    if (typeof hljs !== 'undefined') {
+                        messageDiv.querySelectorAll('pre code').forEach((block) => {
+                            hljs.highlightElement(block);
+                        });
+                    }
+                }
+            }
+
+            scrollToBottom();
+        }
+
+        function copyToClipboard(event) {
+            const button = event.currentTarget;
+            const rawContent = button.getAttribute('data-raw-content');
+            navigator.clipboard.writeText(rawContent).then(() => {
+                const originalText = button.innerHTML;
+                button.innerHTML = '✓ 已复制!';
+                button.style.color = '#27ae60'; // Green color for success
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.style.color = ''; // Revert color
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
+            event.stopPropagation();
+        }
+
+        function addErrorMessage(message) {
+            const messagesDiv = document.getElementById('messages');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            messagesDiv.appendChild(errorDiv);
+            scrollToBottom();
+        }
+
+        async function deleteSession(sessionId, event) {
+            event.stopPropagation();
+            if (!confirm('确定要永久删除此会话吗？')) return;
+
+            try {
+                await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+
+                if (sessionId === currentSessionId) {
+                    currentSessionId = null;
+                    document.getElementById('messages').innerHTML = '<div class="welcome"><h2>👋 欢迎!</h2><p>创建或选择一个会话开始聊天。</p></div>';
+                    document.getElementById('message-input').disabled = true;
+                    document.getElementById('send-btn').disabled = true;
+                    document.getElementById('status').textContent = '选择或创建一个会话';
+
+                    // Clear artifacts if we're deleting the current session
+                    clearArtifacts();
+
+                    // Auto-create a new session after deleting the current one
+                    setTimeout(() => createNewSession(true), 100);
+                } else {
+                    // If deleting another session, just reload the session list
+                    await loadSessionList();
+                }
+            } catch (error) {
+                console.error('Failed to delete session:', error);
+                alert('Failed to delete session');
+            }
+        }
+
+        async function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                // Get refresh token for cleanup
+                const refreshToken = localStorage.getItem('refresh_token');
+                
+                // Call logout API
+                if (refreshToken) {
+                    try {
+                        await fetch('/api/auth/logout', { 
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ refresh_token: refreshToken })
+                        });
+                    } catch (e) {
+                        console.warn('Logout API call failed:', e);
+                    }
+                }
+
+                // Clear local storage
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('user');
+                
+                // Clear cookies
+                document.cookie = 'access_token=; path=/; max-age=0';
+                document.cookie = 'refresh_token=; path=/; max-age=0';
+                document.cookie = 'client_id=; path=/; max-age=0';
+
+                // Redirect to login
+                window.location.href = '/login';
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebarCollapsed = !sidebarCollapsed;
+
+            if (sidebarCollapsed) {
+                sidebar.classList.add('collapsed');
+            } else {
+                sidebar.classList.remove('collapsed');
+            }
+        }
+
+        function scrollToBottom() {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = now - date;
+
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+            return date.toLocaleDateString();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML.replace(/\n/g, '<br>');
+        }
+
+        // Artifacts Functions
+        function extractArtifacts(content) {
+            console.log('extractArtifacts called with content length:', content.length);
+            const artifacts = [];
+            let processedContent = content;
+
+            // Types that should be extracted as artifacts
+            const artifactTypes = ['html', 'svg', 'python', 'javascript', 'js', 'shell', 'bash', 'sh',
+                'css', 'json', 'yaml', 'yml', 'sql', 'docker', 'dockerfile',
+                'go', 'java', 'cpp', 'c', 'rust', 'typescript', 'ts',
+                'php', 'ruby', 'swift', 'kotlin', 'markdown', 'md'];
+
+            // Extract code blocks using regex pattern
+            // Format: ```language ... ```
+            // Also supports: ```language:artifact ... ``` (forced artifact)
+            const codeBlockRegex = /```(\w+)(?::artifact)?\n([\s\S]*?)```/g;
+
+            let match;
+            let artifactIndex = 0;
+
+            while ((match = codeBlockRegex.exec(content)) !== null) {
+                const language = match[1] || 'text';
+                const fullMatch = match[0];
+                const codeContent = match[2].trim();
+
+                // Check if this is a forced artifact (contains :artifact in the opening)
+                const isForcedArtifact = fullMatch.includes('```' + language + ':artifact');
+
+                // Count the number of lines in the code block
+                const lineCount = codeContent.split('\n').length;
+
+                // Extract as artifact if:
+                // 1. It's a forced artifact, OR
+                // 2. The type is supported AND has more than 50 lines
+                if (isForcedArtifact || (artifactTypes.includes(language.toLowerCase()) && lineCount > 50)) {
+                    const artifactId = `artifact_${Date.now()}_${artifactIndex++}`;
+                    const type = language.toLowerCase();
+
+                    // Generate a smart title based on content
+                    let title = generateArtifactTitle(codeContent, type);
+
+                    // Add prefix for forced artifacts
+                    if (isForcedArtifact) {
+                        title = `📌 ${title}`;
+                    }
+
+                    artifacts.push({
+                        id: artifactId,
+                        type: type,
+                        language: language,
+                        title: title,
+                        content: codeContent,
+                        forced: isForcedArtifact
+                    });
+
+                    // Replace code block with placeholder marker
+                    processedContent = processedContent.replace(fullMatch,
+                        `<!-- ARTIFACT:${artifactId} -->`);
+                }
+            }
+
+            return {
+                content: processedContent,
+                artifacts: artifacts
+            };
+        }
+
+        function generateArtifactTitle(content, type) {
+            // Try to extract a meaningful title from the content
+            const lines = content.split('\n').filter(line => line.trim());
+
+            // For HTML, look for title tag
+            if (type === 'html') {
+                const titleMatch = content.match(/<title>(.*?)<\/title>/i);
+                if (titleMatch) return titleMatch[1];
+            }
+
+            // For Python/JavaScript/Java, look for function/class/variable definitions
+            if (['python', 'javascript', 'js', 'java', 'go', 'rust', 'typescript', 'ts'].includes(type)) {
+                const funcMatch = lines.find(line =>
+                    line.match(/^(def|function|func|fn)\s+\w+/) ||
+                    line.match(/^class\s+\w+/) ||
+                    line.match(/^(const|let|var)\s+\w+/)
+                );
+                if (funcMatch) return funcMatch.trim().split(/\s+/)[1];
+            }
+
+            // For shell/bash, look for shebang or first command
+            if (['shell', 'bash', 'sh'].includes(type)) {
+                if (lines[0] && lines[0].startsWith('#!')) {
+                    return lines[0].substring(2).trim();
+                }
+            }
+
+            // For CSS, look for class or ID selectors
+            if (type === 'css') {
+                const selectorMatch = lines.find(line =>
+                    line.match(/^\.[\w-]+\s*\{/) ||
+                    line.match(/^#[\w-]+\s*\{/)
+                );
+                if (selectorMatch) return selectorMatch.trim().split(/\s+/)[0];
+            }
+
+            // For Dockerfile
+            if (type === 'dockerfile' || type === 'docker') {
+                const fromMatch = lines.find(line => line.startsWith('FROM'));
+                if (fromMatch) return `Dockerfile - ${fromMatch}`;
+            }
+
+            // Default: use first line or type name
+            if (lines.length > 0 && lines[0].length < 50) {
+                return lines[0].substring(0, 30);
+            }
+
+            return `${type.charAt(0).toUpperCase() + type.slice(1)} Code`;
+        }
+
+        let isArtifactsOpen = false;
+
+        function clearArtifacts() {
+            console.log('Clearing artifacts...'); // Debug log
+
+            // Clear current artifacts
+            artifacts.clear();
+            currentArtifactId = null;
+            isArtifactsOpen = false;
+
+            // Update display
+            updateArtifactsDisplay();
+
+            // Close artifacts sidebar if open
+            const artifactsSidebar = document.getElementById('artifacts-sidebar');
+            if (artifactsSidebar) {
+                artifactsSidebar.classList.add('collapsed');
+            }
+        }
+
+
+        function toggleArtifactsSidebar() {
+            const artifactsSidebar = document.getElementById('artifacts-sidebar');
+
+            console.log('Toggling artifacts sidebar, current artifacts count:', artifacts.size); // Debug log
+
+            isArtifactsOpen = !isArtifactsOpen;
+
+            if (isArtifactsOpen) {
+                artifactsSidebar.classList.remove('collapsed');
+                updateArtifactsDisplay();
+            } else {
+                artifactsSidebar.classList.add('collapsed');
+            }
+        }
+
+        function updateArtifactsDisplay() {
+            const titleElement = document.getElementById('artifacts-title');
+            const headerElement = document.getElementById('artifacts-header');
+            const contentContainer = document.getElementById('artifacts-content');
+
+            if (artifacts.size === 0) {
+                headerElement.innerHTML = '<h2 id="artifacts-title">Artifacts</h2>';
+                contentContainer.innerHTML = '<div class="no-artifacts">No artifacts in this session</div>';
+                currentArtifactId = null;
+                return;
+            }
+
+            // If there's a current artifact, update the header to show its info
+            if (currentArtifactId && artifacts.has(currentArtifactId)) {
+                const artifact = artifacts.get(currentArtifactId);
+                const icon = getTypeIcon(artifact.type);
+                headerElement.innerHTML = `<h2 id="artifacts-title">${icon} ${artifact.title}</h2>`;
+            } else {
+                // Show first artifact if none selected
+                const firstArtifactId = artifacts.keys().next().value;
+                if (firstArtifactId) {
+                    showArtifact(firstArtifactId);
+                }
+            }
+        }
+
+        function openArtifactsModal() {
+            if (!isArtifactsOpen) {
+                toggleArtifactsSidebar();
+            }
+        }
+
+        function closeArtifactsModal() {
+            if (isArtifactsOpen) {
+                toggleArtifactsSidebar();
+            }
+        }
+
+        function showArtifact(artifactId) {
+            console.log('showArtifact called with ID:', artifactId);
+            console.log('Available artifacts:', Array.from(artifacts.keys()));
+
+            const artifact = artifacts.get(artifactId);
+            if (!artifact) {
+                console.error('Artifact not found:', artifactId);
+                // Show error message to user
+                const content = document.getElementById('artifacts-content');
+                if (content) {
+                    content.innerHTML = '<div class="artifact-error">Artifact not found: ' + artifactId + '</div>';
+                }
+                return;
+            }
+
+            // Update current artifact ID
+            currentArtifactId = artifactId;
+
+            // Ensure artifacts sidebar is open
+            if (!isArtifactsOpen) {
+                const artifactsSidebar = document.getElementById('artifacts-sidebar');
+                artifactsSidebar.classList.remove('collapsed');
+                isArtifactsOpen = true;
+            }
+
+            // Update header with current artifact info
+            const headerElement = document.getElementById('artifacts-header');
+            const icon = getTypeIcon(artifact.type);
+            headerElement.innerHTML = `<h2 id="artifacts-title">${icon} ${artifact.title}</h2>`;
+
+            // Show artifact content
+            const content = document.getElementById('artifacts-content');
+            renderArtifactContent(artifact).then(html => {
+                content.innerHTML = '<div class="artifact-full">' + html + '</div>';
+            }).catch(error => {
+                console.error('Error rendering artifact content:', error);
+                content.innerHTML = '<div class="artifact-error">Error rendering artifact: ' + error.message + '</div>';
+            });
+        }
+
+        function getTypeIcon(type) {
+            const icons = {
+                'html': '🌐',
+                'svg': '🎨',
+                'python': '🐍',
+                'javascript': '⚡',
+                'shell': '🖥️',
+                'bash': '🖥️',
+                'markdown': '📝',
+                'json': '📋',
+                'yaml': '📋',
+                'css': '🎨',
+                'sql': '🗄️',
+                'docker': '🐳',
+                'kubernetes': '☸️',
+                'terraform': '🏗️',
+                'go': '🐹',
+                'java': '☕',
+                'cpp': '⚙️',
+                'c': '⚙️',
+                'rust': '🦀',
+                'typescript': '📘',
+                'php': '🐘',
+                'ruby': '💎',
+                'swift': '🍎',
+                'kotlin': '🎯'
+            };
+            return icons[type] || '📄';
+        }
+
+        async function renderArtifactContent(artifact) {
+            console.log('renderArtifactContent called with type:', artifact.type, 'title:', artifact.title);
+            const { type, content, language } = artifact;
+
+            // Wait for highlight.js if needed
+            if (typeof hljs === 'undefined' && window.librariesLoading['highlightjs']) {
+                console.log('Waiting for highlight.js to load...');
+                await window.librariesLoading['highlightjs'];
+                console.log('Highlight.js loaded, hljs available:', typeof hljs !== 'undefined');
+            }
+
+            switch (type) {
+                case 'html':
+                    return `
+                        <div class="artifact-actions">
+                            <button class="artifact-copy-btn" onclick="copyArtifactContent('${artifact.id}', 'html')" title="复制代码">
+                                📋 复制
+                            </button>
+                        </div>
+                        <iframe srcdoc="${escapeHtml(content)}"></iframe>
+                    `;
+
+                case 'svg':
+                    return `
+                        <div class="artifact-actions">
+                            <button class="artifact-copy-btn" onclick="copyArtifactContent('${artifact.id}', 'svg')" title="复制 SVG">
+                                📋 复制
+                            </button>
+                        </div>
+                        ${content}
+                    `;
+
+                case 'python':
+                case 'javascript':
+                case 'js':
+                case 'shell':
+                case 'bash':
+                case 'sh':
+                case 'markdown':
+                case 'md':
+                case 'json':
+                case 'yaml':
+                case 'yml':
+                case 'css':
+                case 'sql':
+                case 'docker':
+                case 'dockerfile':
+                case 'go':
+                case 'java':
+                case 'cpp':
+                case 'c':
+                case 'rust':
+                case 'typescript':
+                case 'ts':
+                case 'php':
+                case 'ruby':
+                case 'swift':
+                case 'kotlin':
+                case 'text':
+                default:
+                    // Check if hljs is available
+                    if (typeof hljs === 'undefined') {
+                        console.warn('hljs not available, using plain text');
+                        return `
+                            <div class="artifact-actions">
+                                <button class="artifact-copy-btn" onclick="copyArtifactContent('${artifact.id}', 'text')" title="复制代码">
+                                    📋 复制
+                                </button>
+                            </div>
+                            <pre><code>${escapeHtml(content)}</code></pre>
+                        `;
+                    }
+
+                    // Map types to highlight.js languages
+                    const langMap = {
+                        'js': 'javascript',
+                        'ts': 'typescript',
+                        'sh': 'bash',
+                        'dockerfile': 'dockerfile',
+                        'md': 'markdown',
+                        'yml': 'yaml'
+                    };
+                    const hlLang = langMap[type] || language || type;
+
+                    // Try to highlight, fallback to plaintext if language not supported
+                    try {
+                        let highlighted;
+                        if (hlLang && hlLang !== 'plaintext') {
+                            highlighted = hljs.highlight(content, { language: hlLang }).value;
+                        } else {
+                            highlighted = hljs.highlight(content, { language: 'plaintext' }).value;
+                        }
+                        return `
+                            <div class="artifact-actions">
+                                <button class="artifact-copy-btn" onclick="copyArtifactContent('${artifact.id}', 'code')" title="复制代码">
+                                    📋 复制
+                                </button>
+                            </div>
+                            <pre><code>${highlighted}</code></pre>
+                        `;
+                    } catch (e) {
+                        console.warn('Highlight failed for language:', hlLang, e);
+                        return `
+                            <div class="artifact-actions">
+                                <button class="artifact-copy-btn" onclick="copyArtifactContent('${artifact.id}', 'text')" title="复制代码">
+                                    📋 复制
+                                </button>
+                            </div>
+                            <pre><code>${escapeHtml(content)}</code></pre>
+                        `;
+                    }
+            }
+        }
+
+        // Artifact Copy Function
+        function copyArtifactContent(artifactId, contentType) {
+            console.log('Copying artifact:', artifactId, 'type:', contentType);
+
+            const artifact = artifacts.get(artifactId);
+            if (!artifact) {
+                console.error('Artifact not found:', artifactId);
+                showNotification('Artifact not found', 'error');
+                return;
+            }
+
+            let textToCopy = '';
+
+            switch (contentType) {
+                case 'html':
+                    textToCopy = artifact.content;
+                    break;
+                case 'svg':
+                    textToCopy = artifact.content;
+                    break;
+                case 'code':
+                case 'text':
+                default:
+                    textToCopy = artifact.content;
+                    break;
+            }
+
+            // Use modern clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(textToCopy)
+                    .then(() => {
+                        console.log('Artifact copied successfully');
+                        showNotification('代码已复制到剪贴板', 'success');
+
+                        // Update button text temporarily
+                        const button = document.querySelector(`.artifact-copy-btn[onclick*="copyArtifactContent('${artifactId}', '${contentType}')"]`);
+                        if (button) {
+                            const originalText = button.innerHTML;
+                            button.innerHTML = '✅ 已复制';
+                            button.disabled = true;
+                            setTimeout(() => {
+                                button.innerHTML = originalText;
+                                button.disabled = false;
+                            }, 2000);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy artifact:', err);
+                        // Fallback to older method
+                        fallbackCopyText(textToCopy);
+                    });
+            } else {
+                // Fallback for older browsers
+                fallbackCopyText(textToCopy);
+            }
+        }
+
+        function fallbackCopyText(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+
+            try {
+                textArea.focus();
+                textArea.select();
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    console.log('Artifact copied successfully (fallback)');
+                    showNotification('代码已复制到剪贴板', 'success');
+                } else {
+                    throw new Error('Copy command failed');
+                }
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+                showNotification('复制失败，请手动复制', 'error');
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+
+            // Add to page
+            document.body.appendChild(notification);
+
+            // Show notification
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+
+            // Hide after 3 seconds
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // Tools Functions
+        let toolsRefreshInterval = null; // Store interval ID for cleanup
+
+        async function loadHierarchicalData(retryCount = 0) {
+            if (!currentSessionId) return;
+
+            try {
+                const response = await fetch(`/api/tools/hierarchical?session_id=${currentSessionId}`);
+                if (response.ok) {
+                    hierarchicalData = await response.json();
+
+                    // Update status indicators
+                    mcpEnabled = hierarchicalData.enabled;
+                    skills = hierarchicalData.skills || [];
+                    mcpTools = [];
+
+                    // Flatten MCP tools for status count
+                    if (hierarchicalData.mcp_tools) {
+                        hierarchicalData.mcp_tools.forEach(category => {
+                            mcpTools = mcpTools.concat(category.tools || []);
+                        });
+                    }
+
+                    // Update Skills status
+                    const skillsIndicator = document.getElementById('skills-indicator');
+                    const skillsText = document.getElementById('skills-text');
+
+                    if (skills.length > 0) {
+                        skillsIndicator.classList.remove('disabled');
+                        skillsText.textContent = `Skills (${skills.length})`;
+                        document.getElementById('skills-status').title = `已加载 ${skills.length} 个 Skills`;
+                    } else {
+                        skillsIndicator.classList.add('disabled');
+                        skillsText.textContent = hierarchicalData.tools_loading ? 'Skills (加载中...)' : 'Skills';
+                        document.getElementById('skills-status').title = hierarchicalData.tools_loading ? 'Skills 正在加载中...' : '暂无 Skills';
+                    }
+
+                    // Update MCP status
+                    const mcpIndicator = document.getElementById('mcp-indicator');
+                    const mcpText = document.getElementById('mcp-text');
+
+                    if (mcpEnabled && mcpTools.length > 0) {
+                        mcpIndicator.classList.remove('disabled');
+                        mcpText.textContent = `MCP (${mcpTools.length})`;
+                        document.getElementById('mcp-status').title = `已加载 ${mcpTools.length} 个 MCP 工具`;
+                    } else {
+                        mcpIndicator.classList.add('disabled');
+                        mcpText.textContent = hierarchicalData.tools_loading ? 'MCP (加载中...)' : 'MCP';
+                        document.getElementById('mcp-status').title = hierarchicalData.tools_loading ? 'MCP 工具正在加载中...' : 'MCP 工具未启用';
+                    }
+
+                    // If tools are still loading, retry after a delay
+                    if (hierarchicalData.tools_loading && !hierarchicalData.tools_loaded && retryCount < 20) {
+                        setTimeout(() => {
+                            console.log('Tools still loading, retrying...');
+                            loadHierarchicalData(retryCount + 1);
+                        }, 1000); // Retry every 1 second
+                    } else if (hierarchicalData.tools_loaded) {
+                        console.log('Tools loaded successfully');
+                        // Clear any existing interval
+                        if (toolsRefreshInterval) {
+                            clearInterval(toolsRefreshInterval);
+                            toolsRefreshInterval = null;
+                        }
+                    }
+                } else {
+                    // Server doesn't support hierarchical tools, fall back to old method
+                    await updateToolsStatusLegacy();
+                }
+            } catch (error) {
+                console.log('Hierarchical tools not available, using legacy:', error);
+                await updateToolsStatusLegacy();
+            }
+        }
+
+        async function updateToolsStatusLegacy() {
+            try {
+                const response = await fetch(`/api/mcp/tools?session_id=${currentSessionId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    mcpEnabled = data.enabled;
+                    const allTools = data.tools || [];
+
+                    // Separate skills and MCP tools
+                    skills = allTools.filter(tool => tool.type === 'skill');
+                    mcpTools = allTools.filter(tool => tool.type === 'mcp');
+
+                    // Update Skills status
+                    const skillsIndicator = document.getElementById('skills-indicator');
+                    const skillsText = document.getElementById('skills-text');
+
+                    if (skills.length > 0) {
+                        skillsIndicator.classList.remove('disabled');
+                        skillsText.textContent = `Skills (${skills.length})`;
+                        document.getElementById('skills-status').title = `已加载 ${skills.length} 个 Skills`;
+                    } else {
+                        skillsIndicator.classList.add('disabled');
+                        skillsText.textContent = 'Skills';
+                        document.getElementById('skills-status').title = '暂无 Skills';
+                    }
+
+                    // Update MCP status
+                    const mcpIndicator = document.getElementById('mcp-indicator');
+                    const mcpText = document.getElementById('mcp-text');
+
+                    if (mcpEnabled && mcpTools.length > 0) {
+                        mcpIndicator.classList.remove('disabled');
+                        mcpText.textContent = `MCP (${mcpTools.length})`;
+                        document.getElementById('mcp-status').title = `已加载 ${mcpTools.length} 个 MCP 工具`;
+                    } else {
+                        mcpIndicator.classList.add('disabled');
+                        mcpText.textContent = 'MCP';
+                        document.getElementById('mcp-status').title = 'MCP 工具未启用';
+                    }
+                } else {
+                    // Server doesn't support MCP
+                    updateToolsDisabled();
+                }
+            } catch (error) {
+                console.log('Tools not available:', error);
+                updateToolsDisabled();
+            }
+        }
+
+        async function updateToolsStatus() {
+            if (hierarchicalData) {
+                // Data already loaded, just update counts
+                const skillsIndicator = document.getElementById('skills-indicator');
+                const skillsText = document.getElementById('skills-text');
+                const mcpIndicator = document.getElementById('mcp-indicator');
+                const mcpText = document.getElementById('mcp-text');
+
+                if (skills.length > 0) {
+                    skillsIndicator.classList.remove('disabled');
+                    skillsText.textContent = `Skills (${skills.length})`;
+                    document.getElementById('skills-status').title = `已加载 ${skills.length} 个 Skills`;
+                } else {
+                    skillsIndicator.classList.add('disabled');
+                    skillsText.textContent = 'Skills';
+                    document.getElementById('skills-status').title = '暂无 Skills';
+                }
+
+                if (mcpEnabled && mcpTools.length > 0) {
+                    mcpIndicator.classList.remove('disabled');
+                    mcpText.textContent = `MCP (${mcpTools.length})`;
+                    document.getElementById('mcp-status').title = `已加载 ${mcpTools.length} 个 MCP 工具`;
+                } else {
+                    mcpIndicator.classList.add('disabled');
+                    mcpText.textContent = 'MCP';
+                    document.getElementById('mcp-status').title = 'MCP 工具未启用';
+                }
+            } else {
+                await loadHierarchicalData();
+            }
+        }
+
+        function toggleCategory(index, type) {
+            const toolsId = type === 'skill' ? `skill-tools-${index}` : `mcp-tools-${index}`;
+            const toolsElement = document.getElementById(toolsId);
+            const headerElement = toolsElement.previousElementSibling;
+
+            if (toolsElement.classList.contains('expanded')) {
+                toolsElement.classList.remove('expanded');
+                headerElement.classList.remove('active');
+            } else {
+                toolsElement.classList.add('expanded');
+                headerElement.classList.add('active');
+            }
+        }
+
+        function updateToolsDisabled() {
+            const skillsIndicator = document.getElementById('skills-indicator');
+            const skillsText = document.getElementById('skills-text');
+            const mcpIndicator = document.getElementById('mcp-indicator');
+            const mcpText = document.getElementById('mcp-text');
+
+            skillsIndicator.classList.add('disabled');
+            skillsText.textContent = 'Skills';
+            document.getElementById('skills-status').title = 'Skills 未启用';
+
+            mcpIndicator.classList.add('disabled');
+            mcpText.textContent = 'MCP';
+            document.getElementById('mcp-status').title = 'MCP 未启用';
+        }
+
+        async function showSkillsModal() {
+            const modal = document.getElementById('skills-modal');
+            const skillsList = document.getElementById('skills-list');
+
+            // Load hierarchical data if not loaded
+            if (!hierarchicalData) {
+                await loadHierarchicalData();
+            }
+
+            if (!hierarchicalData || hierarchicalData.skills.length === 0) {
+                skillsList.innerHTML = '<div class="no-tools">暂无可用 Skills</div>';
+            } else {
+                skillsList.innerHTML = hierarchicalData.skills.map((skill, index) => `
+                    <div class="category-item">
+                        <div class="category-header" onclick="toggleCategory(${index}, 'skill')">
+                            <div class="category-info">
+                                <div class="category-name">${escapeHtml(skill.name)}</div>
+                                <div class="category-description">${escapeHtml(skill.description)}</div>
+                            </div>
+                            <div class="expand-icon">▶</div>
+                        </div>
+                        <div class="category-tools" id="skill-tools-${index}">
+                            ${skill.tools && skill.tools.length > 0 ?
+                        skill.tools.map(tool => `
+                                    <div class="tool-item">
+                                        <div class="tool-name">${escapeHtml(tool.name)}</div>
+                                        <div class="tool-description">${escapeHtml(tool.description)}</div>
+                                    </div>
+                                `).join('') :
+                        '<div class="tool-item"><div class="tool-description">暂无工具</div></div>'
+                    }
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            modal.classList.add('show');
+        }
+
+        function closeSkillsModal() {
+            const modal = document.getElementById('skills-modal');
+            modal.classList.remove('show');
+        }
+
+        async function showMCPToolsModal() {
+            const modal = document.getElementById('mcp-tools-modal');
+            const mcpToolsList = document.getElementById('mcp-tools-list');
+
+            // Load hierarchical data if not loaded
+            if (!hierarchicalData) {
+                await loadHierarchicalData();
+            }
+
+            if (!hierarchicalData || !hierarchicalData.enabled || hierarchicalData.mcp_tools.length === 0) {
+                mcpToolsList.innerHTML = '<div class="no-tools">暂无可用 MCP 工具</div>';
+            } else {
+                mcpToolsList.innerHTML = hierarchicalData.mcp_tools.map((category, index) => `
+                    <div class="category-item">
+                        <div class="category-header" onclick="toggleCategory(${index}, 'mcp')">
+                            <div class="category-info">
+                                <div class="category-name">${escapeHtml(category.category)}</div>
+                                <div class="category-description">${escapeHtml(category.description)} (${category.tools.length} tools)</div>
+                            </div>
+                            <div class="expand-icon">▶</div>
+                        </div>
+                        <div class="category-tools" id="mcp-tools-${index}">
+                            ${category.tools.map(tool => `
+                                <div class="tool-item">
+                                    <div class="tool-name">${escapeHtml(tool.name)}</div>
+                                    <div class="tool-description">${escapeHtml(tool.description)}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            modal.classList.add('show');
+        }
+
+        function closeMCPToolsModal() {
+            const modal = document.getElementById('mcp-tools-modal');
+            modal.classList.remove('show');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('skills-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                closeSkillsModal();
+            }
+        });
+
+        document.getElementById('mcp-tools-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                closeMCPToolsModal();
+            }
+        });
+
+        // Escape key to close modals
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                // Close any open modal
+                const skillsModal = document.getElementById('skills-modal');
+                const mcpModal = document.getElementById('mcp-tools-modal');
+                const themeModal = document.getElementById('theme-modal');
+                const codeThemeModal = document.getElementById('code-theme-modal');
+
+                if (skillsModal.classList.contains('show')) {
+                    closeSkillsModal();
+                }
+                if (mcpModal.classList.contains('show')) {
+                    closeMCPToolsModal();
+                }
+                if (themeModal.classList.contains('show')) {
+                    closeThemeModal();
+                }
+                if (codeThemeModal.classList.contains('show')) {
+                    closeCodeThemeModal();
+                }
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('theme-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                closeThemeModal();
+            }
+        });
+
+        document.getElementById('code-theme-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                closeCodeThemeModal();
+            }
+        });
+    </script>
+</body>
+
+</html>

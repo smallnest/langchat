@@ -1,0 +1,21 @@
+{
+  "id": "db8b6b78-e63a-43a5-9aca-db7b47bad067",
+  "messages": [
+    {
+      "id": "89e27018-2d64-45c8-85a7-d787403129b8",
+      "role": "user",
+      "content": "1+1=?",
+      "timestamp": "2025-12-18T16:54:24.147462+08:00",
+      "feedback": ""
+    },
+    {
+      "id": "08b9ccba-9dd2-49c7-a54e-d71f8264aea8",
+      "role": "assistant",
+      "content": "1 + 1 = **2**  \n\nLet me know if you'd help with anything else! 😊",
+      "timestamp": "2025-12-18T16:54:26.864706+08:00",
+      "feedback": "like"
+    }
+  ],
+  "created_at": "2025-12-18T16:54:20.009664+08:00",
+  "updated_at": "2025-12-18T16:56:33.654841+08:00"
+}

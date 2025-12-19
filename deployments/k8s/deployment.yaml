@@ -1,0 +1,204 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-agent
+  labels:
+    app: chat-agent
+    version: v1.0.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: chat-agent
+  template:
+    metadata:
+      labels:
+        app: chat-agent
+        version: v1.0.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: chat-agent
+        image: chat-agent:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        env:
+        - name: LLM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: chat-agent-secrets
+              key: llm-api-key
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: SERVER_HOST
+          value: "0.0.0.0"
+        - name: SERVER_PORT
+          value: "8080"
+        - name: MONITORING_ENABLED
+          value: "true"
+        - name: METRICS_PORT
+          value: "9090"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/configs
+          readOnly: true
+        - name: sessions-volume
+          mountPath: /app/data/sessions
+        - name: logs-volume
+          mountPath: /app/logs
+      volumes:
+      - name: config-volume
+        configMap:
+          name: chat-agent-config
+      - name: sessions-volume
+        emptyDir: {}
+      - name: logs-volume
+        emptyDir: {}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-agent-service
+  labels:
+    app: chat-agent
+spec:
+  selector:
+    app: chat-agent
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-agent-service-loadbalancer
+  labels:
+    app: chat-agent
+spec:
+  selector:
+    app: chat-agent
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chat-agent-config
+data:
+  config.json: |
+    {
+      "server": {
+        "host": "0.0.0.0",
+        "port": 8080,
+        "read_timeout": 30000000000,
+        "write_timeout": 30000000000,
+        "idle_timeout": 120000000000
+      },
+      "agent": {
+        "max_concurrent": 50,
+        "max_idle_time": 1800000000000,
+        "health_check_interval": 30000000000,
+        "max_retries": 3,
+        "retry_delay": 5000000000,
+        "session_timeout": 3600000000000,
+        "max_history": 100
+      },
+      "llm": {
+        "provider": "openai",
+        "model": "gpt-4",
+        "temperature": 0.7,
+        "max_tokens": 4096,
+        "timeout": 60000000000
+      },
+      "security": {
+        "jwt_secret": "your-super-secret-jwt-key",
+        "session_timeout": 86400000000000,
+        "rate_limit_enabled": true,
+        "rate_limit_rps": 10,
+        "cors_enabled": true
+      },
+      "monitoring": {
+        "enabled": true,
+        "metrics_port": 9090,
+        "tracing_enabled": false,
+        "health_check_enabled": true
+      },
+      "logging": {
+        "level": "info",
+        "format": "json",
+        "output": "stdout"
+      },
+      "cache": {
+        "type": "memory",
+        "ttl": 3600000000000,
+        "max_size": 1000
+      },
+      "features": {
+        "artifacts_enabled": true,
+        "tools_enabled": true,
+        "websocket_enabled": true
+      }
+    }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: chat-agent-secrets
+type: Opaque
+data:
+  # Base64 encoded values
+  # llm-api-key: <base64-encoded-api-key>
+  llm-api-key: eW91ci1hcGkta2V5LWhlcmU=  # echo -n "your-api-key-here" | base64
+  jwt-secret: eW91ci1zdXBlci1zZWNyZXQtand0LWtleQ==  # echo -n "your-super-secret-jwt-key" | base64

@@ -1,0 +1,55 @@
+{
+  "server": {
+    "host": "localhost",
+    "port": 8080,
+    "read_timeout": 30000000000,
+    "write_timeout": 30000000000,
+    "idle_timeout": 120000000000
+  },
+  "agent": {
+    "max_concurrent": 50,
+    "max_idle_time": 1800000000000,
+    "health_check_interval": 30000000000,
+    "max_retries": 3,
+    "retry_delay": 5000000000,
+    "session_timeout": 3600000000000,
+    "max_history": 100
+  },
+  "llm": {
+    "provider": "deepseek",
+    "model": "deepseek-v3",
+    "api_key": "",
+    "temperature": 0.7,
+    "max_tokens": 4096,
+    "timeout": 60000000000
+  },
+  "security": {
+    "jwt_secret": "your-secret-key",
+    "session_timeout": 86400000000000,
+    "rate_limit_enabled": true,
+    "rate_limit_rps": 10,
+    "cors_enabled": true
+  },
+  "monitoring": {
+    "enabled": true,
+    "metrics_port": 9090,
+    "tracing_enabled": false,
+    "health_check_enabled": true
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "output": "stdout"
+  },
+  "cache": {
+    "type": "memory",
+    "ttl": 3600000000000,
+    "max_size": 1000
+  },
+  "features": {
+    "artifacts_enabled": true,
+    "tools_enabled": true,
+    "websocket_enabled": true,
+    "feedback_enabled": true
+  }
+}

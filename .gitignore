@@ -24,9 +24,14 @@ profile.cov
 go.work
 go.work.sum
 
+chat
+!chat/
+
 # env file
 .env
 
 # Editor/IDE
 # .idea/
 # .vscode/
+
+.claude/

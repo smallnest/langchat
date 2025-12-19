@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: chat-agent-metrics
+  labels:
+    app: chat-agent
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: chat-agent
+  namespace: default
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    honorLabels: true

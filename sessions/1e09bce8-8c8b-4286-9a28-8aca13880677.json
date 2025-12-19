@@ -1,0 +1,17 @@
+{
+  "id": "1e09bce8-8c8b-4286-9a28-8aca13880677",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Python学习路线",
+      "timestamp": "2025-12-09T17:18:13.914469+08:00"
+    },
+    {
+      "role": "assistant",
+      "content": "学习Python可以按照以下路线循序渐进，分为几个关键阶段，附带核心内容和实用建议：\n\n---\n\n### **1. 基础语法**\n- **核心内容**：\n  - 变量、数据类型（数字、字符串、列表、字典等）\n  - 基础运算符、条件语句（`if-else`）、循环（`for/while`）\n  - 函数定义、模块和包的导入\n  - 文件读写（`open()`）\n- **学习资源**：\n  - 官方文档[《Python Tutorial》](https://docs.python.org/3/tutorial/)\n  - 书籍：《Python Crash Course》（入门实践）\n\n---\n\n### **2. 进阶知识**\n- **核心内容**：\n  - 面向对象编程（类、继承、多态）\n  - 错误处理（`try-except`）\n  - 常用模块：`os`、`sys`、`datetime`、`collections`\n  - 匿名函数（`lambda`）、生成器与迭代器\n  - 装饰器（`@decorator`）\n- **项目练习**：\n  - 简易计算器、TODO清单（命令行版）\n\n---\n\n### **3. 工具与开发环境**\n- **必备工具**：\n  - IDE：PyCharm（专业）、VS Code（轻量）\n  - 虚拟环境：`venv` 或 `conda`\n  - 包管理：`pip` + `requirements.txt`\n  - 代码格式化：`black` / `autopep8`\n\n---\n\n### **4. 应用方向（选择1-2个深耕）**\n#### **A. 数据分析/科学计算**\n- 库：`pandas`（数据处理）、`numpy`（数值计算）、`matplotlib`/`seaborn`（可视化）\n- 学习资源：Kaggle入门竞赛、《Python for Data Analysis》\n\n#### **B. Web开发**\n- 框架：`Flask`（轻量）、`Django`（全栈）\n- 数据库：`SQLite`/`PostgreSQL` + `SQLAlchemy`\n- 前端基础：HTML/CSS + `JavaScript`（可选）\n\n#### **C. 自动化与脚本**\n- 库：`requests`（网络请求）、`BeautifulSoup`/`Scrapy`（爬虫）、`selenium`（浏览器自动化）\n\n#### **D. 机器学习/AI**\n- 库：`scikit-learn`（传统机器学习）、`TensorFlow`/`PyTorch`（深度学习）\n- 前置数学：线性代数、概率统计基础\n\n---\n\n### **5. 持续提升**\n- **代码质量**：\n  - 学习单元测试（`unittest`/`pytest`）\n  - 掌握设计模式（如单例、工厂模式）\n- **参与开源**：\n  - GitHub上贡献项目或复现经典项目（如爬虫、Web应用）\n- **刷题巩固**：\n  - LeetCode（Python标签）、牛客网\n\n---\n\n### **6. 避坑建议**\n- **不要死记语法**：多写代码，遇到问题查文档。\n- **避免重复造轮子**：优先使用成熟库（如`requests`代替手动处理HTTP）。\n- **善用AI工具**：用Copilot或ChatGPT辅助debug，但需理解原理。\n\n---\n\n按这个路线，2-3个月可掌握基础并完成小项目。关键是**边学边练**，例如学完基础后立刻用`pandas`分析一个Excel数据集，或写一个爬虫抓取天气数据。",
+      "timestamp": "2025-12-09T17:18:39.471505+08:00"
+    }
+  ],
+  "created_at": "2025-12-09T17:17:56.931368+08:00",
+  "updated_at": "2025-12-09T17:18:39.471506+08:00"
+}
