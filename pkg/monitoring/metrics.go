@@ -16,28 +16,28 @@ type MetricsCollector struct {
 	mu sync.RWMutex
 
 	// HTTP metrics
-	httpRequestsTotal    *prometheus.CounterVec
+	httpRequestsTotal   *prometheus.CounterVec
 	httpRequestDuration *prometheus.HistogramVec
 	httpRequestSize     *prometheus.HistogramVec
 	httpResponseSize    *prometheus.HistogramVec
 
 	// Agent metrics
-	agentTotal          prometheus.Gauge
-	agentActive         prometheus.Gauge
-	agentMessageTotal   *prometheus.CounterVec
-	agentErrorTotal     *prometheus.CounterVec
-	agentSessionTotal   *prometheus.CounterVec
-	agentTokenUsage     *prometheus.CounterVec
+	agentTotal        prometheus.Gauge
+	agentActive       prometheus.Gauge
+	agentMessageTotal *prometheus.CounterVec
+	agentErrorTotal   *prometheus.CounterVec
+	agentSessionTotal *prometheus.CounterVec
+	agentTokenUsage   *prometheus.CounterVec
 
 	// LLM metrics
-	llmRequestsTotal    *prometheus.CounterVec
-	llmRequestDuration  *prometheus.HistogramVec
-	llmTokenUsage       *prometheus.CounterVec
-	llmErrorsTotal      *prometheus.CounterVec
+	llmRequestsTotal   *prometheus.CounterVec
+	llmRequestDuration *prometheus.HistogramVec
+	llmTokenUsage      *prometheus.CounterVec
+	llmErrorsTotal     *prometheus.CounterVec
 
 	// System metrics
-	systemMemoryUsage   prometheus.Gauge
-	systemCPUUsage      prometheus.Gauge
+	systemMemoryUsage    prometheus.Gauge
+	systemCPUUsage       prometheus.Gauge
 	systemGoroutineCount prometheus.Gauge
 
 	// Custom metrics
@@ -357,12 +357,12 @@ type HealthCheck func(ctx context.Context) error
 
 // HealthStatus represents the status of a health check
 type HealthStatus struct {
-	Name      string    `json:"name"`
-	Status    string    `json:"status"` // "healthy", "unhealthy", "unknown"
-	Message   string    `json:"message"`
-	LastCheck time.Time `json:"last_check"`
+	Name      string        `json:"name"`
+	Status    string        `json:"status"` // "healthy", "unhealthy", "unknown"
+	Message   string        `json:"message"`
+	LastCheck time.Time     `json:"last_check"`
 	Duration  time.Duration `json:"duration"`
-	Error     string    `json:"error,omitempty"`
+	Error     string        `json:"error,omitempty"`
 }
 
 // NewHealthChecker creates a new health checker

@@ -59,7 +59,10 @@ func main() {
 
 	maxHistory := 50
 	if maxHistoryStr := os.Getenv("MAX_HISTORY_SIZE"); maxHistoryStr != "" {
-		fmt.Sscanf(maxHistoryStr, "%d", &maxHistory)
+		if _, err := fmt.Sscanf(maxHistoryStr, "%d", &maxHistory); err != nil {
+			log.Printf("Warning: Failed to parse MAX_HISTORY_SIZE %q, using default 50: %v", maxHistoryStr, err)
+			maxHistory = 50
+		}
 	}
 
 	// Get config file path from environment or use default

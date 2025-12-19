@@ -30,14 +30,6 @@ import (
 	sessionpkg "github.com/smallnest/langchat/pkg/session"
 )
 
-// getEnvOrDefault returns environment variable or default value
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
 // SkillInfo stores basic info about a skill
 type SkillInfo struct {
 	Name        string
@@ -281,19 +273,6 @@ func (a *SimpleChatAgent) Close() error {
 	return nil
 }
 
-// getToolsInfo returns a formatted string of available tools
-func (a *SimpleChatAgent) getToolsInfo() string {
-	if len(a.mcpTools) == 0 {
-		return "No tools available."
-	}
-
-	var info strings.Builder
-	for _, tool := range a.mcpTools {
-		info.WriteString(fmt.Sprintf("- %s: %s\n", tool.Name(), tool.Description()))
-	}
-	return info.String()
-}
-
 // GetAvailableTools returns the list of available skills and MCP tools
 func (a *SimpleChatAgent) GetAvailableTools() []map[string]string {
 	var tools []map[string]string
@@ -484,7 +463,9 @@ func (a *SimpleChatAgent) ChatStream(ctx context.Context, message string, enable
 						// Notify start of tool execution
 						toolName = (*tool).Name()
 						notifyStart := fmt.Sprintf("\n\n> 🛠️ Calling tool **%s**...\n\n", toolName)
-						onChunk(ctx, []byte(notifyStart))
+						if err := onChunk(ctx, []byte(notifyStart)); err != nil {
+							log.Printf("Warning: Failed to send tool start notification: %v", err)
+						}
 						fullResponseBuilder.WriteString(notifyStart)
 
 						// Call the tool
@@ -494,7 +475,9 @@ func (a *SimpleChatAgent) ChatStream(ctx context.Context, message string, enable
 						if err != nil {
 							log.Printf("Tool %s call failed: %v", toolName, err)
 							notifyError := fmt.Sprintf("\n\n> ❌ Tool error: %v\n\n", err)
-							onChunk(ctx, []byte(notifyError))
+							if err := onChunk(ctx, []byte(notifyError)); err != nil {
+								log.Printf("Warning: Failed to send tool error notification: %v", err)
+							}
 							fullResponseBuilder.WriteString(notifyError)
 						} else {
 							toolUsed = true
@@ -503,7 +486,9 @@ func (a *SimpleChatAgent) ChatStream(ctx context.Context, message string, enable
 
 							// Format result in collapsible details
 							notifyResult := fmt.Sprintf("\n\n<details>\n<summary>Tool Result: %s</summary>\n\n```\n%s\n```\n\n</details>\n\n", toolName, result)
-							onChunk(ctx, []byte(notifyResult))
+							if err := onChunk(ctx, []byte(notifyResult)); err != nil {
+								log.Printf("Warning: Failed to send tool result notification: %v", err)
+							}
 							fullResponseBuilder.WriteString(notifyResult)
 						}
 					}
@@ -527,7 +512,9 @@ func (a *SimpleChatAgent) ChatStream(ctx context.Context, message string, enable
 				// Notify start of tool execution
 				toolName = (*tool).Name()
 				notifyStart := fmt.Sprintf("\n\n> 🛠️ Calling tool **%s**...\n\n", toolName)
-				onChunk(ctx, []byte(notifyStart))
+				if err := onChunk(ctx, []byte(notifyStart)); err != nil {
+					log.Printf("Warning: Failed to send MCP tool start notification: %v", err)
+				}
 				fullResponseBuilder.WriteString(notifyStart)
 
 				// Call the tool
@@ -537,7 +524,9 @@ func (a *SimpleChatAgent) ChatStream(ctx context.Context, message string, enable
 				if err != nil {
 					log.Printf("MCP tool %s call failed: %v", toolName, err)
 					notifyError := fmt.Sprintf("\n\n> ❌ Tool error: %v\n\n", err)
-					onChunk(ctx, []byte(notifyError))
+					if err := onChunk(ctx, []byte(notifyError)); err != nil {
+						log.Printf("Warning: Failed to send MCP tool error notification: %v", err)
+					}
 					fullResponseBuilder.WriteString(notifyError)
 				} else {
 					toolUsed = true
@@ -546,7 +535,9 @@ func (a *SimpleChatAgent) ChatStream(ctx context.Context, message string, enable
 
 					// Format result in collapsible details
 					notifyResult := fmt.Sprintf("\n\n<details>\n<summary>Tool Result: %s</summary>\n\n```\n%s\n```\n\n</details>\n\n", toolName, result)
-					onChunk(ctx, []byte(notifyResult))
+					if err := onChunk(ctx, []byte(notifyResult)); err != nil {
+						log.Printf("Warning: Failed to send MCP tool result notification: %v", err)
+					}
 					fullResponseBuilder.WriteString(notifyResult)
 				}
 			}
@@ -935,7 +926,9 @@ func (cs *ChatServer) HandleIndex(w http.ResponseWriter, r *http.Request, static
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(data)
+	if _, err := w.Write(data); err != nil {
+		log.Printf("Warning: Failed to write index.html: %v", err)
+	}
 }
 
 // HandleNewSession creates a new chat session
@@ -960,10 +953,12 @@ func (cs *ChatServer) HandleNewSession(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"session_id": session.ID,
 		"client_id":  clientID,
-	})
+	}); err != nil {
+		log.Printf("Warning: Failed to encode new session response: %v", err)
+	}
 }
 
 // HandleListSessions returns all active sessions for the client
@@ -1012,7 +1007,9 @@ func (cs *ChatServer) HandleListSessions(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(sessionInfos)
+	if err := json.NewEncoder(w).Encode(sessionInfos); err != nil {
+		log.Printf("Warning: Failed to encode sessions list response: %v", err)
+	}
 }
 
 // HandleDeleteSession deletes a session
@@ -1092,7 +1089,9 @@ func (cs *ChatServer) HandleGetHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(messages)
+	if err := json.NewEncoder(w).Encode(messages); err != nil {
+		log.Printf("Warning: Failed to encode session messages response: %v", err)
+	}
 }
 
 // HandleChat handles chat message requests
@@ -1209,10 +1208,12 @@ func (cs *ChatServer) HandleChatNonStream(w http.ResponseWriter, r *http.Request
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"response":   response,
 		"message_id": msgID,
-	})
+	}); err != nil {
+		log.Printf("Warning: Failed to encode chat response: %v", err)
+	}
 }
 
 // HandleChatStream handles streaming chat responses using SSE
@@ -1302,9 +1303,11 @@ func (cs *ChatServer) HandleGetClientID(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"client_id": clientID,
-	})
+	}); err != nil {
+		log.Printf("Warning: Failed to encode client ID response: %v", err)
+	}
 }
 
 // HandleMCPTools returns the list of available MCP tools
@@ -1332,10 +1335,12 @@ func (cs *ChatServer) HandleMCPTools(w http.ResponseWriter, r *http.Request) {
 	tools := simpleAgent.GetAvailableTools()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
+	if err := json.NewEncoder(w).Encode(map[string]any{
 		"tools":   tools,
 		"enabled": simpleAgent.toolsEnabled,
-	})
+	}); err != nil {
+		log.Printf("Warning: Failed to encode MCP tools response: %v", err)
+	}
 }
 
 // HandleToolsHierarchical returns tools in a hierarchical structure
@@ -1443,7 +1448,9 @@ func (cs *ChatServer) HandleToolsHierarchical(w http.ResponseWriter, r *http.Req
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("Warning: Failed to encode hierarchical tools response: %v", err)
+	}
 }
 
 // HandleFeedback handles message feedback (like/dislike)
@@ -1480,14 +1487,16 @@ func (cs *ChatServer) HandleFeedback(w http.ResponseWriter, r *http.Request) {
 // HandleConfig returns the chat configuration
 func (cs *ChatServer) HandleConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
+	if err := json.NewEncoder(w).Encode(map[string]any{
 		"chatTitle":      "聊天智能体",
 		"appLogo":        "/static/images/logo.png",
 		"enableFeedback": cs.config.Features.FeedbackEnabled,
 		"environment":    "development", // TODO: Get from config manager
 		"llmModel":       cs.config.LLM.Model,
 		"version":        "1.0.0",
-	})
+	}); err != nil {
+		log.Printf("Warning: Failed to encode config response: %v", err)
+	}
 }
 
 // Close gracefully shuts down the server and cleans up all resources
@@ -1828,27 +1837,33 @@ func (s *ChatServer) HandleHealth(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if allHealthy {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{
 				"status":    "healthy",
 				"timestamp": time.Now().UTC(),
 				"checks":    results,
-			})
+			}); err != nil {
+				log.Printf("Warning: Failed to encode healthy status response: %v", err)
+			}
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{
 				"status":    "unhealthy",
 				"timestamp": time.Now().UTC(),
 				"checks":    results,
-			})
+			}); err != nil {
+				log.Printf("Warning: Failed to encode unhealthy status response: %v", err)
+			}
 		}
 	} else {
 		// Fallback health check
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":    "healthy",
 			"timestamp": time.Now().UTC(),
-		})
+		}); err != nil {
+			log.Printf("Warning: Failed to encode fallback healthy response: %v", err)
+		}
 	}
 }
 
@@ -1866,9 +1881,11 @@ func (s *ChatServer) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotFound)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"error": "Metrics collection not enabled",
-	})
+	}); err != nil {
+		log.Printf("Warning: Failed to encode metrics error response: %v", err)
+	}
 }
 
 // HandleReady handles readiness probe requests
@@ -1892,25 +1909,31 @@ func (s *ChatServer) HandleReady(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if ready {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{
 				"status":    "ready",
 				"timestamp": time.Now().UTC(),
-			})
+			}); err != nil {
+				log.Printf("Warning: Failed to encode ready response: %v", err)
+			}
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{
 				"status":    "not ready",
 				"timestamp": time.Now().UTC(),
-			})
+			}); err != nil {
+				log.Printf("Warning: Failed to encode not ready response: %v", err)
+			}
 		}
 	} else {
 		// Default to ready if no health checker is configured
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":    "ready",
 			"timestamp": time.Now().UTC(),
-		})
+		}); err != nil {
+			log.Printf("Warning: Failed to encode default ready response: %v", err)
+		}
 	}
 }
 
@@ -1954,5 +1977,7 @@ func (s *ChatServer) HandleInfo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(info)
+	if err := json.NewEncoder(w).Encode(info); err != nil {
+		log.Printf("Warning: Failed to encode server info response: %v", err)
+	}
 }

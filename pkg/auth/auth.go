@@ -12,15 +12,15 @@ import (
 
 // User represents a user in the system
 type User struct {
-	ID        string    `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	Password  string    `json:"-"` // Never expose password
-	Roles     []string  `json:"roles"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        string     `json:"id"`
+	Username  string     `json:"username"`
+	Email     string     `json:"email"`
+	Password  string     `json:"-"` // Never expose password
+	Roles     []string   `json:"roles"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 	LastLogin *time.Time `json:"last_login,omitempty"`
-	Active    bool      `json:"active"`
+	Active    bool       `json:"active"`
 }
 
 // JWTClaims represents the JWT claims structure (must match middleware)
@@ -62,7 +62,7 @@ type UserInfo struct {
 
 // AuthService provides authentication services
 type AuthService struct {
-	users         map[string]*User // In-memory user store (use database in production)
+	users         map[string]*User  // In-memory user store (use database in production)
 	refreshTokens map[string]string // Refresh token storage
 	secretKey     string
 	tokenExpiry   time.Duration
@@ -279,13 +279,18 @@ func (a *AuthService) CreateDemoUsers() error {
 
 func (a *AuthService) generateID() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp-based ID if random generation fails
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
 	return base64.URLEncoding.EncodeToString(b)
 }
 
 func (a *AuthService) generateRefreshToken() (string, error) {
 	b := make([]byte, 32)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate random bytes: %w", err)
+	}
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 

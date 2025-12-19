@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"net/http"
 )
 
@@ -24,7 +25,9 @@ func (s *StaticHandler) ServeMainApp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(mainAppHTML))
+	if _, err := w.Write([]byte(mainAppHTML)); err != nil {
+		log.Printf("Warning: Failed to write main app HTML: %v", err)
+	}
 }
 
 // mainAppHTML is the main application HTML with authentication

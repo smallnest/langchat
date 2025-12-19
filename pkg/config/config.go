@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"gopkg.in/yaml.v3"
 	"github.com/fsnotify/fsnotify"
+	"gopkg.in/yaml.v3"
 )
 
 // Environment represents the deployment environment
@@ -68,25 +68,25 @@ type ServerConfig struct {
 
 // AgentConfig holds agent-related configuration
 type AgentConfig struct {
-	MaxConcurrent    int           `json:"max_concurrent" yaml:"max_concurrent" env:"AGENT_MAX_CONCURRENT" default:"50"`
-	MaxIdleTime      time.Duration `json:"max_idle_time" yaml:"max_idle_time" env:"AGENT_MAX_IDLE_TIME" default:"30m"`
+	MaxConcurrent       int           `json:"max_concurrent" yaml:"max_concurrent" env:"AGENT_MAX_CONCURRENT" default:"50"`
+	MaxIdleTime         time.Duration `json:"max_idle_time" yaml:"max_idle_time" env:"AGENT_MAX_IDLE_TIME" default:"30m"`
 	HealthCheckInterval time.Duration `json:"health_check_interval" yaml:"health_check_interval" env:"AGENT_HEALTH_CHECK_INTERVAL" default:"30s"`
-	MaxRetries       int           `json:"max_retries" yaml:"max_retries" env:"AGENT_MAX_RETRIES" default:"3"`
-	RetryDelay       time.Duration `json:"retry_delay" yaml:"retry_delay" env:"AGENT_RETRY_DELAY" default:"5s"`
-	SessionTimeout   time.Duration `json:"session_timeout" yaml:"session_timeout" env:"AGENT_SESSION_TIMEOUT" default:"60m"`
-	MaxHistory       int           `json:"max_history" yaml:"max_history" env:"AGENT_MAX_HISTORY" default:"100"`
+	MaxRetries          int           `json:"max_retries" yaml:"max_retries" env:"AGENT_MAX_RETRIES" default:"3"`
+	RetryDelay          time.Duration `json:"retry_delay" yaml:"retry_delay" env:"AGENT_RETRY_DELAY" default:"5s"`
+	SessionTimeout      time.Duration `json:"session_timeout" yaml:"session_timeout" env:"AGENT_SESSION_TIMEOUT" default:"60m"`
+	MaxHistory          int           `json:"max_history" yaml:"max_history" env:"AGENT_MAX_HISTORY" default:"100"`
 }
 
 // LLMConfig holds LLM provider configuration
 type LLMConfig struct {
-	Provider     string `json:"provider" yaml:"provider" env:"LLM_PROVIDER" default:"openai"`
-	Model        string `json:"model" yaml:"model" env:"LLM_MODEL" default:"gpt-4"`
-	APIKey       string `json:"api_key" yaml:"api_key" env:"LLM_API_KEY"`
-	BaseURL      string `json:"base_url" yaml:"base_url" env:"LLM_BASE_URL"`
-	Temperature  float64 `json:"temperature" yaml:"temperature" env:"LLM_TEMPERATURE" default:"0.7"`
-	MaxTokens    int    `json:"max_tokens" yaml:"max_tokens" env:"LLM_MAX_TOKENS" default:"4096"`
-	Timeout      time.Duration `json:"timeout" yaml:"timeout" env:"LLM_TIMEOUT" default:"60s"`
-	RetryAttempts int   `json:"retry_attempts" yaml:"retry_attempts" env:"LLM_RETRY_ATTEMPTS" default:"3"`
+	Provider      string        `json:"provider" yaml:"provider" env:"LLM_PROVIDER" default:"openai"`
+	Model         string        `json:"model" yaml:"model" env:"LLM_MODEL" default:"gpt-4"`
+	APIKey        string        `json:"api_key" yaml:"api_key" env:"LLM_API_KEY"`
+	BaseURL       string        `json:"base_url" yaml:"base_url" env:"LLM_BASE_URL"`
+	Temperature   float64       `json:"temperature" yaml:"temperature" env:"LLM_TEMPERATURE" default:"0.7"`
+	MaxTokens     int           `json:"max_tokens" yaml:"max_tokens" env:"LLM_MAX_TOKENS" default:"4096"`
+	Timeout       time.Duration `json:"timeout" yaml:"timeout" env:"LLM_TIMEOUT" default:"60s"`
+	RetryAttempts int           `json:"retry_attempts" yaml:"retry_attempts" env:"LLM_RETRY_ATTEMPTS" default:"3"`
 }
 
 // DatabaseConfig holds database configuration
@@ -115,11 +115,11 @@ type SecurityConfig struct {
 
 // MonitoringConfig holds monitoring configuration
 type MonitoringConfig struct {
-	Enabled          bool          `json:"enabled" yaml:"enabled" env:"MONITORING_ENABLED" default:"true"`
-	MetricsPort      int           `json:"metrics_port" yaml:"metrics_port" env:"METRICS_PORT" default:"9090"`
-	TracingEnabled   bool          `json:"tracing_enabled" yaml:"tracing_enabled" env:"TRACING_ENABLED" default:"false"`
-	JaegerEndpoint   string        `json:"jaeger_endpoint" yaml:"jaeger_endpoint" env:"JAEGER_ENDPOINT"`
-	HealthCheckEnabled bool        `json:"health_check_enabled" yaml:"health_check_enabled" env:"HEALTH_CHECK_ENABLED" default:"true"`
+	Enabled             bool          `json:"enabled" yaml:"enabled" env:"MONITORING_ENABLED" default:"true"`
+	MetricsPort         int           `json:"metrics_port" yaml:"metrics_port" env:"METRICS_PORT" default:"9090"`
+	TracingEnabled      bool          `json:"tracing_enabled" yaml:"tracing_enabled" env:"TRACING_ENABLED" default:"false"`
+	JaegerEndpoint      string        `json:"jaeger_endpoint" yaml:"jaeger_endpoint" env:"JAEGER_ENDPOINT"`
+	HealthCheckEnabled  bool          `json:"health_check_enabled" yaml:"health_check_enabled" env:"HEALTH_CHECK_ENABLED" default:"true"`
 	HealthCheckInterval time.Duration `json:"health_check_interval" yaml:"health_check_interval" env:"HEALTH_CHECK_INTERVAL" default:"30s"`
 }
 
@@ -145,24 +145,24 @@ type CacheConfig struct {
 
 // FeaturesConfig holds feature flags
 type FeaturesConfig struct {
-	ArtifactsEnabled    bool `json:"artifacts_enabled" yaml:"artifacts_enabled" env:"FEATURES_ARTIFACTS" default:"true"`
-	ToolsEnabled        bool `json:"tools_enabled" yaml:"tools_enabled" env:"FEATURES_TOOLS" default:"true"`
-	MCPEnabled          bool `json:"mcp_enabled" yaml:"mcp_enabled" env:"FEATURES_MCP" default:"true"`
-	WebSocketEnabled    bool `json:"websocket_enabled" yaml:"websocket_enabled" env:"FEATURES_WEBSOCKET" default:"true"`
-	FileUploadEnabled   bool `json:"file_upload_enabled" yaml:"file_upload_enabled" env:"FEATURES_FILE_UPLOAD" default:"false"`
-	VoiceEnabled        bool `json:"voice_enabled" yaml:"voice_enabled" env:"FEATURES_VOICE" default:"false"`
-	FeedbackEnabled     bool `json:"feedback_enabled" yaml:"feedback_enabled" env:"FEATURES_FEEDBACK" default:"true"`
+	ArtifactsEnabled  bool `json:"artifacts_enabled" yaml:"artifacts_enabled" env:"FEATURES_ARTIFACTS" default:"true"`
+	ToolsEnabled      bool `json:"tools_enabled" yaml:"tools_enabled" env:"FEATURES_TOOLS" default:"true"`
+	MCPEnabled        bool `json:"mcp_enabled" yaml:"mcp_enabled" env:"FEATURES_MCP" default:"true"`
+	WebSocketEnabled  bool `json:"websocket_enabled" yaml:"websocket_enabled" env:"FEATURES_WEBSOCKET" default:"true"`
+	FileUploadEnabled bool `json:"file_upload_enabled" yaml:"file_upload_enabled" env:"FEATURES_FILE_UPLOAD" default:"false"`
+	VoiceEnabled      bool `json:"voice_enabled" yaml:"voice_enabled" env:"FEATURES_VOICE" default:"false"`
+	FeedbackEnabled   bool `json:"feedback_enabled" yaml:"feedback_enabled" env:"FEATURES_FEEDBACK" default:"true"`
 }
 
 // Manager manages configuration with hot reload capability
 type Manager struct {
-	mu           sync.RWMutex
-	config       *Config
-	environment  Environment
-	watchers     []chan *Config
-	configPath   string
-	watcher      *fsnotify.Watcher
-	watching     bool
+	mu          sync.RWMutex
+	config      *Config
+	environment Environment
+	watchers    []chan *Config
+	configPath  string
+	watcher     *fsnotify.Watcher
+	watching    bool
 }
 
 // NewManager creates a new configuration manager
@@ -214,9 +214,16 @@ func (m *Manager) Get() *Config {
 	defer m.mu.RUnlock()
 
 	// Return a deep copy
-	configCopy, _ := json.Marshal(m.config)
+	configCopy, err := json.Marshal(m.config)
+	if err != nil {
+		log.Printf("Warning: Failed to marshal config for copy: %v", err)
+		return &Config{}
+	}
 	var result Config
-	json.Unmarshal(configCopy, &result)
+	if err := json.Unmarshal(configCopy, &result); err != nil {
+		log.Printf("Warning: Failed to unmarshal config for copy: %v", err)
+		return &Config{}
+	}
 	return &result
 }
 
@@ -247,13 +254,13 @@ func (m *Manager) loadDefaults() {
 			MaxConns:     1000,
 		},
 		Agent: AgentConfig{
-			MaxConcurrent:      50,
-			MaxIdleTime:        30 * time.Minute,
+			MaxConcurrent:       50,
+			MaxIdleTime:         30 * time.Minute,
 			HealthCheckInterval: 30 * time.Second,
-			MaxRetries:         3,
-			RetryDelay:         5 * time.Second,
-			SessionTimeout:     60 * time.Minute,
-			MaxHistory:         100,
+			MaxRetries:          3,
+			RetryDelay:          5 * time.Second,
+			SessionTimeout:      60 * time.Minute,
+			MaxHistory:          100,
 		},
 		LLM: LLMConfig{
 			Provider:      "openai",
@@ -506,7 +513,7 @@ func (m *Manager) watchConfigFile() {
 
 			// Handle file events
 			if event.Op&fsnotify.Write == fsnotify.Write ||
-			   event.Op&fsnotify.Create == fsnotify.Create {
+				event.Op&fsnotify.Create == fsnotify.Create {
 				// Debounce rapid file changes
 				time.Sleep(100 * time.Millisecond)
 

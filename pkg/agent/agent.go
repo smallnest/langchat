@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -48,19 +49,19 @@ func (s AgentState) String() string {
 
 // AgentLifecycleConfig holds configuration for agent lifecycle management
 type AgentLifecycleConfig struct {
-	MaxIdleTime     time.Duration `json:"max_idle_time"`     // How long agent can be idle before stopping
+	MaxIdleTime         time.Duration `json:"max_idle_time"`         // How long agent can be idle before stopping
 	HealthCheckInterval time.Duration `json:"health_check_interval"` // Health check interval
-	MaxRetries      int           `json:"max_retries"`       // Maximum number of retries on error
-	RetryDelay      time.Duration `json:"retry_delay"`       // Delay between retries
+	MaxRetries          int           `json:"max_retries"`           // Maximum number of retries on error
+	RetryDelay          time.Duration `json:"retry_delay"`           // Delay between retries
 }
 
 // DefaultAgentLifecycleConfig returns a default lifecycle configuration
 func DefaultAgentLifecycleConfig() *AgentLifecycleConfig {
 	return &AgentLifecycleConfig{
-		MaxIdleTime:        30 * time.Minute,
+		MaxIdleTime:         30 * time.Minute,
 		HealthCheckInterval: 30 * time.Second,
-		MaxRetries:         3,
-		RetryDelay:         5 * time.Second,
+		MaxRetries:          3,
+		RetryDelay:          5 * time.Second,
 	}
 }
 
@@ -82,30 +83,30 @@ type AgentLifecycleManager struct {
 
 // LifecycleEvent represents a lifecycle event
 type LifecycleEvent struct {
-	Timestamp time.Time `json:"timestamp"`
-	EventType string    `json:"event_type"`
+	Timestamp time.Time  `json:"timestamp"`
+	EventType string     `json:"event_type"`
 	State     AgentState `json:"state"`
-	Message   string    `json:"message"`
-	Error     error     `json:"error,omitempty"`
+	Message   string     `json:"message"`
+	Error     error      `json:"error,omitempty"`
 }
 
 // HealthStatus represents the health status of an agent
 type HealthStatus struct {
-	IsHealthy     bool      `json:"is_healthy"`
-	LastCheck     time.Time `json:"last_check"`
+	IsHealthy     bool          `json:"is_healthy"`
+	LastCheck     time.Time     `json:"last_check"`
 	CheckDuration time.Duration `json:"check_duration"`
-	Message       string    `json:"message"`
+	Message       string        `json:"message"`
 }
 
 // AgentMetrics tracks various metrics for an agent
 type AgentMetrics struct {
-	MessageCount      int64         `json:"message_count"`
-	TotalTokensIn     int64         `json:"total_tokens_in"`
-	TotalTokensOut    int64         `json:"total_tokens_out"`
-	ErrorCount        int64         `json:"error_count"`
-	AverageLatency    time.Duration `json:"average_latency"`
-	Uptime            time.Duration `json:"uptime"`
-	StartTime         time.Time     `json:"start_time"`
+	MessageCount   int64         `json:"message_count"`
+	TotalTokensIn  int64         `json:"total_tokens_in"`
+	TotalTokensOut int64         `json:"total_tokens_out"`
+	ErrorCount     int64         `json:"error_count"`
+	AverageLatency time.Duration `json:"average_latency"`
+	Uptime         time.Duration `json:"uptime"`
+	StartTime      time.Time     `json:"start_time"`
 }
 
 // LifecycleEventHandler handles lifecycle events
@@ -120,13 +121,13 @@ func NewAgentLifecycleManager(config *AgentLifecycleConfig) *AgentLifecycleManag
 	ctx, cancel := context.WithCancel(context.Background())
 
 	manager := &AgentLifecycleManager{
-		id:           uuid.New().String(),
-		state:        StateUninitialized,
-		config:       config,
-		ctx:          ctx,
-		cancel:       cancel,
-		eventChan:    make(chan LifecycleEvent, 100),
-		metrics:      &AgentMetrics{StartTime: time.Now()},
+		id:        uuid.New().String(),
+		state:     StateUninitialized,
+		config:    config,
+		ctx:       ctx,
+		cancel:    cancel,
+		eventChan: make(chan LifecycleEvent, 100),
+		metrics:   &AgentMetrics{StartTime: time.Now()},
 	}
 
 	// Start background routines
@@ -186,7 +187,7 @@ func (lm *AgentLifecycleManager) isValidTransition(from, to AgentState) bool {
 	// Define valid transitions
 	validTransitions := map[AgentState][]AgentState{
 		StateUninitialized: {StateInitializing, StateStopped},
-		StateInitializing:   {StateReady, StateError, StateStopped},
+		StateInitializing:  {StateReady, StateError, StateStopped},
 		StateReady:         {StateRunning, StateStopping, StateError},
 		StateRunning:       {StateReady, StatePaused, StateStopping, StateError},
 		StatePaused:        {StateRunning, StateStopping, StateError},
@@ -261,7 +262,9 @@ func (lm *AgentLifecycleManager) SetEventHandler(handler LifecycleEventHandler) 
 
 // Stop gracefully stops the lifecycle manager
 func (lm *AgentLifecycleManager) Stop() {
-	lm.SetState(StateStopping, "Lifecycle manager stopping", nil)
+	if err := lm.SetState(StateStopping, "Lifecycle manager stopping", nil); err != nil {
+		log.Printf("Warning: Failed to set stopping state: %v", err)
+	}
 
 	// Cancel context to stop all background routines
 	lm.cancel()
@@ -269,7 +272,9 @@ func (lm *AgentLifecycleManager) Stop() {
 	// Close event channel
 	close(lm.eventChan)
 
-	lm.SetState(StateStopped, "Lifecycle manager stopped", nil)
+	if err := lm.SetState(StateStopped, "Lifecycle manager stopped", nil); err != nil {
+		log.Printf("Warning: Failed to set stopped state: %v", err)
+	}
 }
 
 // eventProcessor processes lifecycle events
@@ -348,9 +353,11 @@ func (lm *AgentLifecycleManager) checkIdleTimeout() {
 	if state == StateRunning || state == StateReady {
 		idleTime := time.Since(lm.lastActivity)
 		if idleTime > lm.config.MaxIdleTime {
-			lm.SetState(StateStopping,
+			if err := lm.SetState(StateStopping,
 				fmt.Sprintf("Agent idle for %v, stopping", idleTime),
-				nil)
+				nil); err != nil {
+				log.Printf("Warning: Failed to set idle timeout stopping state: %v", err)
+			}
 		}
 	}
 }

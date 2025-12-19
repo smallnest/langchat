@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/smallnest/langchat/pkg/auth"
@@ -60,7 +61,9 @@ func (a *AuthAPI) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Warning: Failed to encode login response: %v", err)
+	}
 }
 
 // HandleRegister handles user registration
@@ -88,7 +91,9 @@ func (a *AuthAPI) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Warning: Failed to encode register response: %v", err)
+	}
 }
 
 // HandleRefresh handles token refresh
@@ -114,7 +119,9 @@ func (a *AuthAPI) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Warning: Failed to encode refresh response: %v", err)
+	}
 }
 
 // HandleLogout handles user logout
@@ -140,7 +147,9 @@ func (a *AuthAPI) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Logged out successfully"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"message": "Logged out successfully"}); err != nil {
+		log.Printf("Warning: Failed to encode logout response: %v", err)
+	}
 }
 
 // HandleGetCurrentUser returns the current authenticated user
@@ -165,24 +174,30 @@ func (a *AuthAPI) HandleGetCurrentUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(&auth.UserInfo{
+	if err := json.NewEncoder(w).Encode(&auth.UserInfo{
 		ID:       fullUser.ID,
 		Username: fullUser.Username,
 		Email:    fullUser.Email,
 		Roles:    fullUser.Roles,
-	})
+	}); err != nil {
+		log.Printf("Warning: Failed to encode user info response: %v", err)
+	}
 }
 
 // serveLoginPage serves the login HTML page
 func (a *AuthAPI) serveLoginPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(loginPageHTML))
+	if _, err := w.Write([]byte(loginPageHTML)); err != nil {
+		log.Printf("Warning: Failed to write login page HTML: %v", err)
+	}
 }
 
 // serveRegisterPage serves the registration HTML page
 func (a *AuthAPI) serveRegisterPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(registerPageHTML))
+	if _, err := w.Write([]byte(registerPageHTML)); err != nil {
+		log.Printf("Warning: Failed to write register page HTML: %v", err)
+	}
 }
 
 // HandleLoginPage handles login page route

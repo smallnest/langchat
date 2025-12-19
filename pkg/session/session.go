@@ -3,6 +3,7 @@ package session
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,7 +46,9 @@ type FileSessionStore struct {
 
 // NewFileSessionStore creates a new FileSessionStore
 func NewFileSessionStore(sessionDir string) *FileSessionStore {
-	os.MkdirAll(sessionDir, 0755)
+	if err := os.MkdirAll(sessionDir, 0755); err != nil {
+		log.Printf("Warning: Failed to create session directory %s: %v", sessionDir, err)
+	}
 	return &FileSessionStore{sessionDir: sessionDir}
 }
 
@@ -240,7 +243,9 @@ func (sm *SessionManager) AddMessage(sessionID, role, content string) (string, e
 	}
 
 	// Save to store
-	sm.store.Save(session)
+	if err := sm.store.Save(session); err != nil {
+		return "", fmt.Errorf("failed to save session: %w", err)
+	}
 
 	return msgID, nil
 }
