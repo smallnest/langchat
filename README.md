@@ -1,672 +1,484 @@
-# LangChat Application
+# LangGraphGo Chat - 智能聊天应用
 
-A sophisticated web-based multi-session chat application with AI agent integration, tool support, and persistent local storage.
+一个基于 Go 和 LangGraphGo 的现代化智能聊天应用框架，集成了AI智能体、多会话管理、工具支持和本地持久化存储。
 
-## ✨ Features
+[![License](https://img.shields.io/:license-MIT-blue.svg)](https://opensource.org/license/apache-2-0) [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/smallnest/langchat) [![github actions](https://github.com/smallnest/langchat/actions/workflows/go.yaml/badge.svg)](https://github.com/smallnest/langchat/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/smallnest/langchat)](https://goreportcard.com/report/github.com/smallnest/langchat) 
 
-### Core Chat Features
-- 🔄 **Multi-Session Support**: Create and manage multiple independent chat sessions
-- 💾 **Persistent Storage**: All conversations automatically saved to local disk
-- 🌐 **Modern Web Interface**: Clean, responsive web UI with real-time updates
-- 🤖 **AI Chat Agent**: Advanced agent with conversation history management
-- 🔧 **Tool Integration**: Support for Skills and MCP (Model Context Protocol) tools
-- 🔌 **Multi-Provider Support**: Works with OpenAI, Baidu, Azure, and any OpenAI-compatible API
-- 🎨 **Beautiful UI**: Dark/light theme support with smooth animations
-- 📝 **Session Management**: Create, view, clear, and delete sessions
-- ⚡ **Hot Reload**: Development mode with automatic code reloading
-- 🐳 **Docker Support**: Containerized deployment ready
+[English](./README.md) | [简体中文](./README_CN.md)
 
-### Enterprise Features
-- 🔐 **Authentication & Authorization**: JWT-based auth with user roles and protected endpoints
-- 📊 **Monitoring & Metrics**: Prometheus metrics collection for HTTP requests, agents, and LLM calls
-- 🏥 **Health Checks**: Comprehensive health monitoring with `/health`, `/ready`, and `/info` endpoints
-- ⚙️ **Configuration Management**: Hot-reloadable configuration with file watching and env var support
-- 🔄 **Streaming Responses**: Real-time chat streaming with Server-Sent Events (SSE)
-- 🛡️ **Graceful Shutdown**: Proper resource cleanup and timeout handling
-- 🚦 **Rate Limiting**: Configurable request rate limiting for API protection
-- 📈 **Performance Monitoring**: System metrics tracking and agent lifecycle management
 
-### Advanced Agent Features
-- 🎯 **Agent Lifecycle Management**: State-based agent lifecycle with health monitoring
-- 🔍 **Tool Selection**: Intelligent tool and skill selection using LLM-based reasoning
-- ⚡ **Tool Pre-warming**: Asynchronous tool loading to prevent first-request delays
-- 🎛️ **Session Isolation**: Client-based session separation with cookie management
-- 💬 **Message Feedback**: User feedback system for message quality assessment
-- 🔧 **Error Recovery**: Robust error handling with automatic retries and fallbacks
+## ✨ 核心特性
 
-## 🏗️ Architecture
+### 🤖 智能聊天功能
+- **多会话支持**: 创建和管理多个独立的聊天会话
+- **AI 智能体**: 基于 LangGraphGo 的先进对话智能体
+- **上下文记忆**: 自动维护对话历史和上下文
+- **多模型支持**: 支持 OpenAI、Azure OpenAI、百度千帆等
+- **实时流式响应**: 基于 Server-Sent Events 的流式聊天
+
+### 🛠️ 工具集成
+- **智能工具选择**: LLM驱动的自动工具选择
+- **Skills 工具系统**: 可扩展的技能包管理
+- **MCP 协议支持**: Model Context Protocol 工具集成
+- **工具进度跟踪**: 实时显示工具执行进度
+
+### 🔐 企业级功能
+- **JWT 认证授权**: 基于角色的访问控制
+- **用户管理**: 注册、登录、会话管理
+- **速率限制**: API 请求保护机制
+- **安全中间件**: CORS、安全头设置
+
+### 📊 监控运维
+- **Prometheus 指标**: HTTP请求、Agent状态、LLM调用监控
+- **健康检查**: `/health`、`/ready`、`/info` 端点
+- **配置热重载**: 支持 JSON/YAML 配置文件监听
+- **优雅关闭**: 完善的资源清理和超时处理
+
+### 🎨 用户界面
+- **现代化 Web UI**: 响应式设计，支持深色/浅色主题
+- **会话管理**: 创建、查看、清空、删除会话
+- **用户反馈**: 消息质量评估和收集
+- **实时更新**: 无需刷新的实时界面更新
+
+## 🏗️ 项目架构
 
 ```
-showcases/chat/
-├── main.go                 # Application entry point and server bootstrap
-├── pkg/                    # Go packages
-│   ├── agent/             # Agent lifecycle management
-│   │   └── agent.go       # Agent state and health monitoring
-│   ├── api/               # API handlers and static content
-│   │   ├── auth.go        # Authentication API endpoints
-│   │   └── static.go      # Static file serving
-│   ├── auth/              # Authentication service
-│   │   └── auth.go        # JWT-based user authentication
-│   ├── chat/              # Chat server and agent logic
-│   │   └── chat.go        # Core chat functionality with streaming
-│   ├── config/            # Configuration management
-│   │   └── config.go      # Hot-reloadable configuration
-│   ├── middleware/        # HTTP middleware
-│   │   └── auth.go        # JWT authentication middleware
-│   ├── monitoring/        # Monitoring and metrics
-│   │   └── metrics.go     # Prometheus metrics and health checks
-│   └── session/           # Session management
-│       └── session.go     # Session persistence with feedback
-├── static/
-│   ├── index.html        # Web frontend
-│   ├── style.css         # UI styles
-│   └── script.js         # Frontend logic with streaming support
-├── sessions/             # Local session storage (auto-created)
-├── configs/              # Configuration files (optional)
-│   └── config.json       # Hot-reloadable config
-├── build/                # Build output directory
-├── Makefile              # Build automation
-├── Dockerfile            # Docker configuration
-├── .air.toml            # Hot reload configuration
-├── go.mod
-├── go.sum
-├── .env                 # Configuration (create from .env.example)
-└── README.md
+langchat/
+├── main.go                     # 应用程序入口
+├── pkg/                        # Go 核心包
+│   ├── agent/                  # 智能体管理
+│   │   └── agent.go           # 智能体生命周期和状态管理
+│   ├── api/                    # HTTP API 处理器
+│   │   ├── auth.go            # 认证相关 API
+│   │   └── static.go          # 静态文件服务
+│   ├── auth/                   # 认证服务
+│   │   └── auth.go            # JWT 用户认证
+│   ├── chat/                   # 聊天核心功能
+│   │   └── chat.go            # 聊天服务器和流式响应
+│   ├── config/                 # 配置管理
+│   │   └── config.go          # 热重载配置系统
+│   ├── middleware/             # HTTP 中间件
+│   │   └── auth.go            # JWT 认证中间件
+│   ├── monitoring/             # 监控指标
+│   │   └── metrics.go         # Prometheus 指标收集
+│   └── session/                # 会话管理
+│       └── session.go         # 会话持久化存储
+├── static/                     # 前端静态资源
+│   ├── index.html             # 主页面
+│   ├── css/                   # 样式文件
+│   ├── js/                    # JavaScript 文件
+│   ├── images/                # 图片资源
+│   └── lib/                   # 第三方库
+├── configs/                    # 配置文件
+│   ├── config.json            # JSON 格式配置
+│   └── config.yaml            # YAML 格式配置
+├── sessions/                   # 本地会话存储（自动创建）
+├── deployments/                # 部署配置
+├── scripts/                    # 构建和部署脚本
+├── docs/                      # 项目文档
+├── Dockerfile                 # Docker 容器配置
+├── Makefile                   # 构建自动化
+├── go.mod                     # Go 模块定义
+└── go.sum                     # 依赖版本锁定
 ```
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-### Option 1: Using Makefile (Recommended)
+### 环境要求
+- Go 1.19 或更高版本
+- OpenAI API Key 或兼容的 LLM 服务
+
+### 方式一：使用 Makefile（推荐）
 
 ```bash
-# Clone and navigate to the project
-cd showcases/chat
+# 克隆项目
+git clone https://github.com/your-repo/langchat.git
+cd langchat
 
-# Install development tools
-make setup-dev
-
-# Copy environment template
-cp .env.example .env
-
-# Edit .env and add your OpenAI API key
-# OPENAI_API_KEY=sk-...
-
-# Run with hot reload (development mode)
-make dev
-
-# Or run normally
-make run-dev
-```
-
-### Option 2: Standard Go Commands
-
-```bash
-cd showcases/chat
-
-# Install dependencies
+# 安装依赖
 go mod download
 
-# Copy environment template
-cp .env.example .env
+# 配置环境变量
+cp configs/config.json.example configs/config.json
+# 编辑 configs/config.json，添加你的 API Key
 
-# Edit .env and add your OpenAI API key
-# OPENAI_API_KEY=sk-...
+# 运行开发服务器
+make dev
 
-# Build and run
+# 或者构建并运行
+make build
+./bin/langchat
+```
+
+### 方式二：标准 Go 命令
+
+```bash
+# 安装依赖
+go mod download
+
+# 配置环境变量
+export OPENAI_API_KEY="your-api-key-here"
+export PORT="8080"
+
+# 运行应用
 go run main.go
 ```
 
-The server will start at `http://localhost:8080`
+### 访问应用
+- 应用地址: http://localhost:8080
+- 登录页面: http://localhost:8080/login
+- 演示账号:
+  - 管理员: `admin` / `admin123`
+  - 普通用户: `user` / `user123`
 
-## 🛠️ Development Workflow
+## ⚙️ 配置说明
 
-### Using Makefile
+### 配置文件结构
 
+应用支持 JSON 和 YAML 两种格式的配置文件：
+
+```json
+{
+  "server": {
+    "host": "localhost",
+    "port": 8080,
+    "read_timeout": 30000000000,
+    "write_timeout": 30000000000
+  },
+  "llm": {
+    "provider": "openai",
+    "model": "gpt-4",
+    "api_key": "your-api-key-here",
+    "temperature": 0.7,
+    "max_tokens": 4096
+  },
+  "auth": {
+    "jwt_secret": "your-secret-key",
+    "session_timeout": 86400000000000,
+    "rate_limit_enabled": true,
+    "rate_limit_rps": 10
+  },
+  "agent": {
+    "max_concurrent": 50,
+    "max_idle_time": 1800000000000,
+    "health_check_interval": 30000000000,
+    "session_timeout": 3600000000000,
+    "max_history": 100
+  },
+  "monitoring": {
+    "enabled": true,
+    "metrics_port": 9090,
+    "health_check_enabled": true
+  }
+}
+```
+
+### 支持的 LLM 提供商
+
+#### OpenAI
+```json
+{
+  "llm": {
+    "provider": "openai",
+    "model": "gpt-4",
+    "api_key": "sk-your-openai-key"
+  }
+}
+```
+
+#### Azure OpenAI
+```json
+{
+  "llm": {
+    "provider": "azure",
+    "model": "your-deployment-name",
+    "api_key": "your-azure-key",
+    "base_url": "https://your-resource.openai.azure.com/"
+  }
+}
+```
+
+#### 百度千帆
+```json
+{
+  "llm": {
+    "provider": "baidu",
+    "model": "ERNIE-Bot",
+    "api_key": "your-baidu-token",
+    "base_url": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions"
+  }
+}
+```
+
+#### 本地模型 (Ollama)
+```json
+{
+  "llm": {
+    "provider": "ollama",
+    "model": "llama2",
+    "api_key": "not-needed",
+    "base_url": "http://localhost:11434/v1"
+  }
+}
+```
+
+## 📡 API 接口
+
+### 认证相关
+- `POST /api/auth/login` - 用户登录
+- `POST /api/auth/register` - 用户注册
+- `POST /api/auth/refresh` - 刷新访问令牌
+- `POST /api/auth/logout` - 用户登出
+- `GET /api/auth/me` - 获取当前用户信息
+
+### 会话管理
+- `POST /api/sessions/new` - 创建新会话
+- `GET /api/sessions` - 获取所有会话
+- `DELETE /api/sessions/:id` - 删除会话
+- `GET /api/sessions/:id/history` - 获取会话历史
+
+### 聊天功能
+- `POST /api/chat` - 发送消息（支持流式响应）
+- `POST /api/feedback` - 提交消息反馈
+
+### 工具和配置
+- `GET /api/mcp/tools` - 获取 MCP 工具列表
+- `GET /api/tools/hierarchical` - 获取分层工具结构
+- `GET /api/config` - 获取应用配置
+
+### 监控和健康检查
+- `GET /health` - 健康检查
+- `GET /ready` - 就绪检查
+- `GET /info` - 服务器信息
+- `GET /metrics` - Prometheus 指标
+
+## 🧩 核心组件
+
+### ChatServer
+- **智能体生命周期管理**: 状态驱动的智能体生命周期
+- **流式响应处理**: 基于 SSE 的实时响应流
+- **会话隔离**: 基于客户端的会话分离
+- **工具集成**: Skills 和 MCP 工具的无缝集成
+
+### SimpleChatAgent
+- **上下文管理**: 自动维护对话历史和上下文
+- **智能工具选择**: 基于 LLM 推理的工具选择
+- **异步初始化**: 后台工具预加载，避免首次请求延迟
+- **错误恢复**: 健壮的错误处理和自动重试
+
+### 认证系统
+- **JWT 认证**: 无状态的用户认证机制
+- **角色权限**: 支持管理员和普通用户角色
+- **会话管理**: 基于 Cookie 的会话管理
+- **演示账号**: 内置开发测试账号
+
+### 监控系统
+- **多维度指标**: HTTP、Agent、LLM、系统资源指标
+- **健康检查**: 全面的应用健康状态监控
+- **性能追踪**: 请求响应时间和处理量监控
+- **Prometheus 集成**: 标准化的指标输出
+
+## 🐳 Docker 部署
+
+### 构建镜像
 ```bash
-# Install development tools (air, golangci-lint, etc.)
-make setup-dev
-
-# Run with hot reload
-make dev
-
-# Run all checks (format, lint, vet, test)
-make check
-
-# Build for production
-make build
-
-# Build for all platforms
-make build-all
+docker build -t langchat .
 ```
 
-### Common Makefile Targets
-
-| Target           | Description              |
-| ---------------- | ------------------------ |
-| `make dev`       | Run with hot reload      |
-| `make run-dev`   | Run with dev environment |
-| `make build`     | Build the application    |
-| `make test`      | Run tests                |
-| `make coverage`  | Run tests with coverage  |
-| `make format`    | Format code              |
-| `make vet`       | Vet code                 |
-| `make lint`      | Lint code                |
-| `make docker-up` | Build and run Docker     |
-| `make clean`     | Clean build artifacts    |
-| `make help`      | Show all targets         |
-
-## ⚙️ Configuration
-
-Environment variables (in `.env`):
-
-```env
-# Required: Your API key
-OPENAI_API_KEY=your-api-key-here
-
-# Optional: Model name (default: gpt-4o-mini)
-OPENAI_MODEL=gpt-4o-mini
-
-# Optional: Base URL for OpenAI-compatible APIs
-# Examples:
-#   Baidu: https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions
-#   Azure: https://your-resource.openai.azure.com/
-#   Ollama: http://localhost:11434/v1
-OPENAI_BASE_URL=
-
-# Optional: Server port (default: 8080)
-PORT=8080
-
-# Optional: Session storage directory (default: ./sessions)
-SESSION_DIR=./sessions
-
-# Optional: Maximum messages per session (default: 50)
-MAX_HISTORY_SIZE=50
-
-# Optional: Skills directory (for tool integration)
-SKILLS_DIR=../../testdata/skills
-
-# Optional: MCP configuration path
-MCP_CONFIG_PATH=../../testdata/mcp/mcp.json
-
-# Optional: Chat title
-CHAT_TITLE=LangChat
-
-# Optional: Authentication settings
-JWT_SECRET=your-jwt-secret-key-here
-SESSION_TIMEOUT=24h
-
-# Optional: Monitoring settings
-MONITORING_ENABLED=true
-METRICS_PORT=9090
-HEALTH_CHECK_ENABLED=true
-
-# Optional: Rate limiting
-RATE_LIMIT_ENABLED=true
-RATE_LIMIT_RPS=10
-
-# Optional: Agent settings
-AGENT_MAX_CONCURRENT=50
-AGENT_MAX_IDLE_TIME=30m
-AGENT_HEALTH_CHECK_INTERVAL=30s
-
-# Optional: Feature flags
-FEATURES_FEEDBACK=true
-FEATURES_WEBSOCKET=true
-FEATURES_MCP=true
-```
-
-### LLM Provider Examples
-
-**OpenAI**:
-```env
-OPENAI_API_KEY=sk-your-openai-key
-OPENAI_MODEL=gpt-4o
-```
-
-**Baidu Qianfan**:
-```env
-OPENAI_API_KEY=your-baidu-token
-OPENAI_BASE_URL=https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions
-OPENAI_MODEL=ERNIE-Bot
-```
-
-**Azure OpenAI**:
-```env
-OPENAI_API_KEY=your-azure-key
-OPENAI_BASE_URL=https://your-resource.openai.azure.com/
-OPENAI_MODEL=your-deployment-name
-```
-
-**Local Models (Ollama, LM Studio)**:
-```env
-OPENAI_API_KEY=not-needed
-OPENAI_BASE_URL=http://localhost:11434/v1
-OPENAI_MODEL=llama2
-```
-
-## 📡 API Endpoints
-
-### Authentication
-- `POST /api/auth/login` - User login with credentials
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/refresh` - Refresh access token
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/me` - Get current user info
-
-### Sessions
-- `POST /api/sessions/new` - Create a new session
-- `GET /api/sessions` - List all sessions
-- `DELETE /api/sessions/:id` - Delete a session
-- `GET /api/sessions/:id/history` - Get session messages
-- `GET /api/client-id` - Get current client ID
-
-### Chat
-- `POST /api/chat` - Send a message (supports streaming)
-  ```json
-  {
-    "session_id": "uuid",
-    "message": "your message",
-    "user_settings": {
-      "enable_skills": true,
-      "enable_mcp": true
-    },
-    "stream": false
-  }
-  ```
-  Response (non-streaming):
-  ```json
-  {
-    "response": "AI response text",
-    "message_id": "uuid"
-  }
-  ```
-
-  Streaming response uses Server-Sent Events (SSE).
-
-### Tools
-- `GET /api/mcp/tools?session_id=:id` - List available MCP tools
-- `GET /api/tools/hierarchical?session_id=:id` - Get tools in hierarchical structure
-- `GET /api/config` - Get chat configuration
-
-### Feedback
-- `POST /api/feedback` - Submit feedback on messages
-  ```json
-  {
-    "session_id": "uuid",
-    "message_id": "uuid",
-    "feedback": "like|dislike"
-  }
-  ```
-
-### Monitoring & Health
-- `GET /health` - Health check endpoint
-- `GET /ready` - Readiness probe
-- `GET /info` - Server information and status
-- `GET /metrics` - Prometheus metrics (redirects to metrics port)
-
-## 🧩 Components
-
-### ChatAgent
-
-The `SimpleChatAgent` provides:
-- Automatic conversation context management
-- Intelligent tool and skill selection using LLM reasoning
-- Tool integration (Skills and MCP) with progress tracking
-- Support for OpenAI-compatible APIs
-- Thread-safe conversation history with message feedback
-- Asynchronous tool loading with pre-warming
-- Streaming response support with real-time updates
-- Graceful error handling and recovery mechanisms
-
-### Authentication System
-
-The JWT-based authentication includes:
-- User registration and login with role-based access control
-- Access and refresh token management with configurable timeouts
-- Protected API endpoints with middleware enforcement
-- Cookie-based session management for browser clients
-- Demo user accounts for testing and development
-
-### Monitoring & Metrics
-
-The monitoring system provides:
-- Prometheus metrics for HTTP requests, response times, and sizes
-- Agent lifecycle metrics (sessions, messages, errors, token usage)
-- LLM provider metrics (requests, duration, token usage, errors)
-- System metrics (memory, CPU, goroutine counts)
-- Health check endpoints with configurable probes
-- Separate metrics server for production deployments
-
-### Configuration Management
-
-The configuration system supports:
-- Hot-reloadable JSON/YAML configuration files
-- Environment variable overrides with type conversion
-- Configuration validation with error reporting
-- File system watching for automatic reloads
-- Environment-specific settings (development, staging, production)
-
-### Session Management
-
-Each session includes:
-- Unique UUID identifier with client-based isolation
-- Complete message history with role-based organization
-- Persistent JSON storage with feedback support
-- Client-based separation using cookies and IP tracking
-- Automatic saving and loading with configurable history limits
-- User feedback collection for message quality assessment
-
-### Tool Integration
-
-The application supports two types of tools:
-
-1. **Skills**: Pre-defined tool packages loaded from `SKILLS_DIR`
-   - Intelligent skill selection using LLM reasoning
-   - Lazy loading with caching for performance
-   - Hierarchical organization with descriptions
-
-2. **MCP Tools**: Dynamic tools from Model Context Protocol servers
-   - Automatic tool discovery and categorization
-   - Error recovery and timeout handling
-   - Real-time execution progress tracking
-
-### Agent Lifecycle Management
-
-The agent lifecycle system provides:
-- State-based agent management (uninitialized → initializing → ready → running → stopped)
-- Health monitoring with configurable check intervals
-- Automatic idle timeout handling with graceful shutdown
-- Retry policies with exponential backoff
-- Resource cleanup and memory management
-- Lifecycle event callbacks and metrics collection
-
-## 🐳 Docker Deployment
-
+### 运行容器
 ```bash
-# Build and run with Docker Compose
-make docker-up
-
-# Or manually:
-docker build -t chat-app .
-docker run -p 8080:8080 -e OPENAI_API_KEY=your-key chat-app
+docker run -p 8080:8080 \
+  -e OPENAI_API_KEY="your-api-key" \
+  -e OPENAI_MODEL="gpt-4" \
+  -v $(pwd)/sessions:/app/sessions \
+  langchat
 ```
 
 ### Docker Compose
-
 ```yaml
 version: '3.8'
 services:
-  chat:
+  langchat:
     build: .
     ports:
       - "8080:8080"
+      - "9090:9090"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_MODEL=gpt-4o-mini
+      - OPENAI_MODEL=gpt-4
     volumes:
       - ./sessions:/app/sessions
+      - ./configs:/app/configs
+    restart: unless-stopped
 ```
 
-## 🧪 Testing
+## 🔧 开发指南
+
+### 项目结构说明
+
+#### pkg/agent/ - 智能体管理
+- 智能体状态机：uninitialized → initializing → ready → running → stopped
+- 健康检查和生命周期管理
+- 并发控制和资源管理
+
+#### pkg/chat/ - 聊天核心
+- HTTP 路由和中间件配置
+- 流式响应处理和 SSE 实现
+- 会话管理和消息存储
+
+#### pkg/config/ - 配置管理
+- 支持热重载的配置系统
+- 环境变量和配置文件的双重支持
+- 配置验证和类型转换
+
+#### pkg/session/ - 会话持久化
+- JSON 格式的会话数据存储
+- 用户反馈收集和评估
+- 会话历史管理和限制
+
+### 开发工作流
 
 ```bash
-# Run all tests
+# 安装开发工具
+make setup-dev
+
+# 启用热重载开发
+make dev
+
+# 代码质量检查
+make check
+
+# 运行测试
 make test
 
-# Run tests with coverage
+# 构建生产版本
+make build
+```
+
+### 添加新功能
+
+1. **新的 API 端点**: 在 `pkg/chat/chat.go` 中添加路由处理
+2. **新的配置选项**: 在 `pkg/config/config.go` 中添加配置结构
+3. **新的前端功能**: 修改 `static/` 目录下的文件
+4. **新的工具集成**: 在 `pkg/agent/agent.go` 中添加工具逻辑
+
+## 🧪 测试
+
+```bash
+# 运行所有测试
+make test
+
+# 运行测试并生成覆盖率报告
 make coverage
 
-# Run specific test
-go test ./pkg/session -v
+# 运行特定包的测试
+go test ./pkg/chat -v
+
+# 运行性能基准测试
+go test -bench=. ./pkg/...
 ```
 
-## 📦 Building
+## 📦 构建和发布
 
-### Build for Current Platform
+### 本地构建
 ```bash
+# 构建当前平台
 make build
-```
 
-### Cross-Platform Builds
-```bash
-# Build for all platforms
+# 交叉编译构建
 make build-all
-
-# Build for specific platforms
-make build-linux
-make build-darwin
-make build-windows
 ```
 
-### Release Packages
+### 发布版本
 ```bash
-# Create release packages
+# 创建发布包
 make release
+
+# 输出目录：build/release/
 ```
 
-Outputs will be in `build/release/`.
+## 🔍 故障排除
 
-## 🔧 Customization
+### 常见问题
 
-### Change System Prompt
-
-Edit `pkg/chat/chat.go` in the `NewSimpleChatAgent` function:
-```go
-systemMsg := llms.MessageContent{
-    Role:  llms.ChatMessageTypeSystem,
-    Parts: []llms.ContentPart{llms.TextPart("Your custom system message here")},
-}
-```
-
-### Add Custom Tools
-
-1. Create a skill package in your skills directory
-2. Follow the skill package structure from the examples
-3. Tools will be automatically loaded
-
-### Modify UI
-
-Edit files in `static/`:
-- `index.html` - Main HTML structure
-- `style.css` - Styles and themes
-- `script.js` - Frontend logic
-
-## 🚀 Streaming Chat
-
-The application supports real-time streaming responses:
-
-### Client-side Streaming
-```javascript
-const response = await fetch('/api/chat', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    session_id: 'uuid',
-    message: 'your message',
-    stream: true
-  })
-});
-
-const reader = response.body.getReader();
-const decoder = new TextDecoder();
-
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
-
-  const chunk = decoder.decode(value);
-  // Process SSE events
-}
-```
-
-### Server-sent Events Format
-- `event: start` - Stream initiation
-- `event: chunk` - Response content chunks
-- `event: end` - Stream completion with full response
-- `event: error` - Error events with details
-
-## 🏢 Enterprise Features
-
-### Authentication & Authorization
-- JWT-based authentication with configurable secrets
-- Role-based access control (admin, user roles)
-- Session management with timeout policies
-- Protected API endpoints with middleware
-
-### Monitoring & Observability
-- Prometheus metrics collection on configurable port
-- Health check endpoints (`/health`, `/ready`, `/info`)
-- System metrics (memory, CPU, goroutines)
-- Request tracing and performance monitoring
-- Error tracking and alerting integration
-
-### Configuration Management
-- Hot-reloadable configuration (JSON/YAML)
-- Environment variable overrides
-- Configuration validation and watching
-- Environment-specific settings
-- Runtime configuration updates
-
-### Graceful Shutdown
-- Configurable shutdown timeouts
-- Resource cleanup and connection management
-- In-flight request completion
-- Agent state preservation
-
-## 🔍 Development
-
-### Project Structure
-
-- **main.go**: Application entry point, bootstrap, and graceful shutdown
-- **pkg/agent/**: Agent lifecycle management and health monitoring
-- **pkg/api/**: HTTP handlers for authentication and static content
-- **pkg/auth/**: JWT-based user authentication service
-- **pkg/chat/**: Core chat functionality with streaming support
-- **pkg/config/**: Hot-reloadable configuration management
-- **pkg/middleware/**: HTTP middleware for authentication
-- **pkg/monitoring/**: Prometheus metrics and health checks
-- **pkg/session/**: Session persistence with feedback support
-- **static/**: Web frontend assets with streaming UI
-- **configs/**: Configuration files (optional)
-
-### Adding Features
-
-1. **New API endpoints**: Add to `pkg/chat/chat.go`
-2. **New session fields**: Update `pkg/session/session.go`
-3. **Frontend changes**: Modify `static/` files
-4. **Configuration**: Add to environment variables
-
-### Code Quality
-
-The project uses:
-- `go fmt` for formatting
-- `go vet` for static analysis
-- `golangci-lint` for comprehensive linting
-- Tests for critical functionality
-
-Run `make check` to run all quality checks.
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**"OPENAI_API_KEY environment variable not set"**
+**"API key not configured"**
 ```bash
-cp .env.example .env
-# Edit .env and add your key
+# 检查配置文件
+cat configs/config.json | grep api_key
+# 或设置环境变量
+export OPENAI_API_KEY="your-key"
 ```
 
-**Port already in use**
+**"Port already in use"**
 ```bash
-PORT=3000 make run-dev
+# 使用不同端口
+export PORT=3000
+go run main.go
 ```
 
-**Tools not loading**
-- Check `SKILLS_DIR` environment variable
-- Verify MCP configuration path
-- Check logs for error messages
+**"Tools not loading"**
+- 检查 MCP 配置路径
+- 验证 Skills 目录权限
+- 查看应用日志中的错误信息
 
-**Build errors**
+**"High memory usage"**
 ```bash
-make clean
-make deps
-make build
+# 调整会话历史限制
+export MAX_HISTORY=20
+
+# 调整最大并发数
+export AGENT_MAX_CONCURRENT=10
 ```
 
-### Debug Mode
-
-Enable verbose logging:
-```env
-LOG_LEVEL=debug
+### 调试模式
+```bash
+# 启用详细日志
+export LOG_LEVEL=debug
+go run main.go
 ```
 
-## 📈 Performance
+## 📈 性能优化
 
-- **Session Loading**: Lazy loading of session history
-- **Tool Initialization**: Asynchronous background loading
-- **Memory Management**: LRU-based session caching
-- **Concurrent Requests**: Goroutine-based request handling
+- **会话懒加载**: 仅在需要时加载会话历史
+- **工具异步初始化**: 后台预加载避免首次请求延迟
+- **内存管理**: LRU 缓存和定期清理
+- **并发处理**: 基于 Goroutine 的高并发请求处理
 
-## 🔒 Security
+## 🔒 安全特性
 
-- No user authentication (single-user mode)
-- Local storage only (no cloud dependencies)
-- Input validation and sanitization
-- CORS configuration for API access
+- JWT 令牌认证和刷新机制
+- CORS 跨域请求保护
+- 输入验证和清理
+- 速率限制和 DDoS 防护
+- 安全的配置管理
 
-## 🗺️ Roadmap
+## 🤝 贡献指南
 
-### ✅ Completed Features
-- [x] **Streaming chat responses** - Server-Sent Events (SSE) implementation
-- [x] **Multi-user support with authentication** - JWT-based auth with roles
-- [x] **Enterprise monitoring** - Prometheus metrics and health checks
-- [x] **Hot configuration reloading** - File-based configuration watching
-- [x] **Agent lifecycle management** - State-based agent monitoring
-- [x] **Message feedback system** - User feedback collection
-- [x] **Graceful shutdown handling** - Proper resource cleanup
-- [x] **Rate limiting** - Configurable request throttling
-- [x] **Health check endpoints** - `/health`, `/ready`, `/info` endpoints
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
+3. 提交更改 (`git commit -m 'Add some amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 创建 Pull Request
 
-### 🚧 In Progress
-- [ ] **Session export/import functionality** - Backup and restore conversations
-- [ ] **Advanced tool management UI** - Interactive tool configuration
-- [ ] **Database integration** - PostgreSQL/MySQL support for production
-- [ ] **WebSocket support** - Real-time bidirectional communication
+## 📄 许可证
 
-### 📋 Planned Features
-- [ ] **Voice input/output support** - Speech-to-text and text-to-speech
-- [ ] **Plugin system for custom tools** - Dynamic tool loading
-- [ ] **Real-time collaboration features** - Multi-user sessions
-- [ ] **File upload capabilities** - Document and image processing
-- [ ] **Advanced analytics dashboard** - Usage insights and trends
-- [ ] **API rate limiting per user** - Individual user quotas
-- [ ] **Message search and filtering** - Content discovery within sessions
-- [ ] **Custom branding support** - White-label customization options
+本项目采用 MIT 许可证。详情请参阅 [LICENSE](LICENSE) 文件。
 
-## 📄 License
+## 📚 相关文档
 
-This project is part of LangGraphGo and follows the same license.
+- [📖 项目文档中心](./docs/) - 完整的设计文档和实施计划
+- [🚀 部署指南](./docs/DEPLOYMENT.md) - 详细的部署和运维指南
+- [🔧 API 参考](./docs/API_REFERENCE.md) - 完整的 API 文档
+- [🧪 测试指南](./docs/TESTING.md) - 测试策略和最佳实践
 
-## 📚 文档和指南
+## 🆘 支持
 
-### 核心文档
-- **[📖 文档中心](./docs/)** - 完整的设计文档、实施计划和总结报告
-  - [智能体开发最佳实践指南](./docs/AGENT_TEMPLATE_GUIDE.md) - 架构设计和最佳实践
-  - [智能体模板改进计划](./docs/AGENT_TEMPLATE_IMPROVEMENTS.md) - 实施路线图（90%完成）
-  - [最终完成报告](./docs/FINAL_COMPLETION_REPORT.md) - 100%诺言兑现验证
-  - [集成完成总结](./docs/INTEGRATION_SUMMARY.md) - 企业级功能集成记录
+如果您遇到问题或有任何疑问，请：
 
-### Roadmap & Tasks
-- **[📋 优化任务清单](./docs/TODOs.md)** - 详细的优化路线图和任务清单
-  - **多模态支持**（图像、音频、文档处理）
-  - **高级智能体功能**（记忆系统、规划系统、自适应学习）
-  - **分布式智能体协作**（Agent间通信、任务协调）
-  - **性能监控增强**（分布式追踪、可视化Dashboard）
-  - **企业级功能**（数据库集成、消息队列）
-  - **开发工具**（SDK、CLI、调试工具）
+1. 查看 [FAQ](./docs/FAQ.md)
+2. 搜索现有的 [Issues](https://github.com/your-repo/langchat/issues)
+3. 创建新的 Issue 并提供详细信息
 
-### 开发指南
-- [LangGraphGo Documentation](https://github.com/smallnest/langgraphgo)
-- [Makefile Guide](./Makefile.README.md)
-- [LangChain Go](https://github.com/tmc/langchaingo)
-- [MCP Specification](https://modelcontextprotocol.io/)
+---
+
+**🎯 LangGraphGo Chat - 构建下一代智能聊天应用的完整解决方案！**
