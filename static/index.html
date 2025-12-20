@@ -111,15 +111,21 @@
                 <p style="padding: 20px; text-align: center; color: #7f8c8d;">加载中...</p>
             </div>
             <div class="sidebar-footer">
-                <div class="theme-selector-sidebar" id="theme-selector" onclick="showThemeModal()" title="主题设置">
-                    <span class="theme-icon">🎨</span>
+                <div class="user-info-sidebar">
+                    <div class="user-avatar-sidebar" id="user-avatar-sidebar">U</div>
+                    <div class="user-name-sidebar" id="user-nickname-sidebar">用户</div>
                 </div>
-                <div class="code-theme-selector-sidebar" id="code-theme-selector" onclick="showCodeThemeModal()"
-                    title="代码主题">
-                    <span class="code-theme-icon">💻</span>
-                </div>
-                <div class="settings-btn" id="settings-btn" onclick="toggleSettingsMenu()" title="设置">
-                    <span class="settings-icon">⚙️</span>
+                <div class="sidebar-actions">
+                    <div class="theme-selector-sidebar" id="theme-selector" onclick="showThemeModal()" title="主题设置">
+                        <span class="theme-icon">🎨</span>
+                    </div>
+                    <div class="code-theme-selector-sidebar" id="code-theme-selector" onclick="showCodeThemeModal()"
+                        title="代码主题">
+                        <span class="code-theme-icon">💻</span>
+                    </div>
+                    <div class="settings-btn" id="settings-btn" onclick="toggleSettingsMenu()" title="设置">
+                        <span class="settings-icon">⚙️</span>
+                    </div>
                 </div>
             </div>
             <!-- Settings Dropdown Menu (outside footer) -->
@@ -168,7 +174,8 @@
                         </div>
                     </div>
                     <div class="logout-btn" id="logout-btn" onclick="logout()" title="退出登录">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                             <polyline points="16 17 21 12 16 7"></polyline>
                             <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -418,6 +425,17 @@
                                 style="background: linear-gradient(135deg, #0a0f0a 0%, #001100 50%, #000500 100%);">
                             </div>
                             <span>黑客帝国</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="theme-section">
+                    <h3>✨ 其他风格</h3>
+                    <div class="theme-grid">
+                        <div class="theme-option" onclick="window.location.href='/ui/v2'">
+                            <div class="theme-preview"
+                                style="background: linear-gradient(135deg, #f9f9f9 0%, #ffffff 50%, #f3f4f6 100%);">
+                            </div>
+                            <span>简约主题</span>
                         </div>
                     </div>
                 </div>
@@ -799,7 +817,7 @@
             // Add event delegation for artifact placeholders
             const messagesContainer = document.getElementById('messages');
             if (messagesContainer) {
-                messagesContainer.addEventListener('click', function(e) {
+                messagesContainer.addEventListener('click', function (e) {
                     const artifactPlaceholder = e.target.closest('.artifact-placeholder');
                     if (artifactPlaceholder) {
                         e.preventDefault();
@@ -1019,6 +1037,8 @@
                     await loadHistory(data.session_id);
                     // Also load and display the session list in sidebar
                     await loadSessionList();
+                    // Update tools status for the new session
+                    await updateToolsStatus();
                 } else {
                     // For manual clicks, reload the session list without auto-creating
                     await loadSessions(false);
@@ -1266,7 +1286,7 @@
                                         // Store artifacts
                                         result.artifacts.forEach(artifact => {
                                             console.log('Adding artifact:', artifact.id, artifact);
-                    artifacts.set(artifact.id, artifact);
+                                            artifacts.set(artifact.id, artifact);
                                         });
 
                                         // Parse Markdown now that we have the complete message
@@ -1825,11 +1845,11 @@
             if (confirm('确定要退出登录吗？')) {
                 // Get refresh token for cleanup
                 const refreshToken = localStorage.getItem('refresh_token');
-                
+
                 // Call logout API
                 if (refreshToken) {
                     try {
-                        await fetch('/api/auth/logout', { 
+                        await fetch('/api/auth/logout', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
@@ -1845,7 +1865,7 @@
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('refresh_token');
                 localStorage.removeItem('user');
-                
+
                 // Clear cookies
                 document.cookie = 'access_token=; path=/; max-age=0';
                 document.cookie = 'refresh_token=; path=/; max-age=0';
@@ -2691,6 +2711,29 @@
                 closeCodeThemeModal();
             }
         });
+
+        // Update user profile display
+        function updateUserProfile() {
+            try {
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const nickname = user.nickname || user.username || '用户';
+                    const firstChar = nickname.charAt(0);
+
+                    const avatarEl = document.getElementById('user-avatar-sidebar');
+                    const nicknameEl = document.getElementById('user-nickname-sidebar');
+
+                    if (avatarEl) avatarEl.textContent = firstChar;
+                    if (nicknameEl) nicknameEl.textContent = nickname;
+                }
+            } catch (e) {
+                console.error('Failed to update user profile:', e);
+            }
+        }
+
+        // Call on page load
+        updateUserProfile();
     </script>
 </body>
 

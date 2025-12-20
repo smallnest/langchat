@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangGraphGo - 仿 ChatGPT</title>
+    <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon">
+    <!-- Code Highlight CSS -->
+    <link rel="stylesheet" href="/static/css/highlight/github.min.css" id="code-theme-link">
+    <!-- Main ChatGPT Style CSS -->
+    <link rel="stylesheet" href="/static/css/chatgpt.css">
+    <link rel="stylesheet" href="/static/css/settings-modal.css">
+
+    <!-- Libraries -->
+    <script src="/static/lib/marked.umd.min.js"></script>
+    <script src="/static/lib/highlight.min.js"></script>
+</head>
+
+<body>
+    <!-- Settings Modal -->
+    <div class="settings-modal" id="settings-modal">
+        <div class="settings-content">
+            <div class="settings-header">
+                <h2>设置</h2>
+                <button class="close-settings-btn" onclick="toggleSettingsModal()">×</button>
+            </div>
+
+            <div class="settings-group">
+                <div class="setting-item">
+                    <div class="setting-label">启用 MCP (Multi-Control Plane)</div>
+                    <label class="switch">
+                        <input type="checkbox" id="setting-mcp" checked
+                            onchange="updateUserSetting('enableMCP', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">启用 Skills</div>
+                    <label class="switch">
+                        <input type="checkbox" id="setting-skills" checked
+                            onchange="updateUserSetting('enableSkills', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">启用流式响应</div>
+                    <label class="switch">
+                        <input type="checkbox" id="setting-stream" checked
+                            onchange="updateUserSetting('stream', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"
+            style="padding: 0.75rem; display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+            <div style="width: 32px; height: 32px; flex-shrink: 0;">
+                <img id="sidebar-logo-img" src="/static/images/logo.png" alt="Logo"
+                    style="width: 100%; height: 100%; object-fit: contain;">
+            </div>
+            <span id="sidebar-app-name" class="logo-text"
+                style="font-weight: 600; font-size: 1rem; flex: 1;">LangGraphGo</span>
+            <button id="sidebar-toggle-btn" class="sidebar-toggle" onclick="toggleSidebar()" title="收起侧边栏">
+                <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"
+                    stroke-linejoin="round" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="9" y1="3" x2="9" y2="21"></line>
+                </svg>
+            </button>
+        </div>
+        <button class="new-chat-btn" onclick="createNewSession(true)">
+            <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"
+                stroke-linejoin="round" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span class="btn-text">
+                新会话
+            </span>
+        </button>
+
+        <div class="history-list" id="sessions-list">
+            <!-- Sessions will be loaded here -->
+        </div>
+
+        <div class="sidebar-footer" style="position: relative;">
+            <!-- Theme Menu -->
+            <div id="theme-menu" class="theme-menu hidden">
+                <div class="theme-option" onclick="setTheme('light')">
+                    <span>☀️</span> 白天模式
+                </div>
+                <div class="theme-option" onclick="setTheme('dark')">
+                    <span>🌙</span> 黑暗模式
+                </div>
+                <div class="theme-option" onclick="setTheme('fancy')">
+                    <span>🎨</span> 花式风格
+                </div>
+            </div>
+
+            <div class="user-profile">
+                <div class="avatar" id="user-avatar" style="background-color: #5436DA; color: white;">U</div>
+                <div class="user-text" style="flex: 1; overflow: hidden;">
+                    <div id="user-nickname"
+                        style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">用户
+                    </div>
+                </div>
+                <button class="theme-btn" onclick="toggleThemeMenu(event)" title="切换主题">
+                    <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"
+                        stroke-linejoin="round" height="18" width="18" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+                <button class="theme-btn" onclick="toggleSettingsModal()" title="设置" style="margin-left: 0.25rem;">
+                    <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"
+                        stroke-linejoin="round" height="18" width="18" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-chat">
+        <div class="mobile-header">
+            <button class="sidebar-toggle mobile-toggle" onclick="toggleSidebar()">
+                <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"
+                    stroke-linejoin="round" height="24" width="24" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+            <span class="mobile-branding">LangGraphGo</span>
+            <div class="tools-status">
+                <div class="skills-status" id="skills-status" title="Skills 状态">
+                    <span class="skills-indicator" id="skills-indicator"></span>
+                    <span class="skills-text" id="skills-text">Skills</span>
+                </div>
+                <div class="mcp-status" id="mcp-status" title="MCP 工具状态">
+                    <span class="mcp-indicator" id="mcp-indicator"></span>
+                    <span class="mcp-text" id="mcp-text">MCP</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Desktop Header (visible on larger screens) -->
+        <div class="desktop-header">
+            <div class="header-title">LangGraphGo</div>
+            <div class="tools-status">
+                <div class="skills-status" id="skills-status-desktop" title="Skills 状态">
+                    <span class="skills-indicator" id="skills-indicator-desktop"></span>
+                    <span class="skills-text">Skills</span>
+                </div>
+                <div class="mcp-status" id="mcp-status-desktop" title="MCP 工具状态">
+                    <span class="mcp-indicator" id="mcp-indicator-desktop"></span>
+                    <span class="mcp-text">MCP</span>
+                </div>
+            </div>
+            <button class="logout-btn" onclick="logout()" title="退出登录">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+            </button>
+        </div>
+
+
+        <div class="messages" id="messages">
+            <!-- Welcome Screen by default -->
+            <div class="welcome-screen" id="welcome-screen">
+                <div class="welcome-logo">
+                    <img id="welcome-logo-img" src="/static/images/logo.png" alt="Logo"
+                        style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
+                <h2>今天有什么可以帮您？</h2>
+                <div class="examples-grid">
+                    <div class="example-column">
+                        <div class="example-card" onclick="setInput('用通俗易懂的语言解释量子计算')">
+                            解释量子计算</div>
+                        <div class="example-card" onclick="setInput('如何在 Go 中发起 HTTP 请求？')">Go HTTP
+                            请求</div>
+                    </div>
+                    <div class="example-column">
+                        <div class="example-card" onclick="setInput('写一首关于编程的诗')">关于编程的诗
+                        </div>
+                        <div class="example-card" onclick="setInput('调试这个 Python 脚本')">调试 Python</div>
+                    </div>
+                </div>
+            </div>
+            <!-- Messages will be appended here -->
+        </div>
+
+        <div class="input-area">
+            <div class="input-container">
+                <textarea id="message-input" class="input-box" placeholder="发送消息..." rows="1"
+                    oninput="adjustHeight(this)" onkeydown="handleEnter(event)"></textarea>
+                <button id="send-btn" class="send-btn" onclick="sendMessage()">
+                    <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"
+                        stroke-linejoin="round" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+        let isWaitingForResponse = false;
+        const userSettings = {
+            enableSkills: true,
+            enableMCP: true,
+            stream: true
+        };
+        let hierarchicalData = null;
+        let skillsNum = 0;
+        let mcpToolsNum = 0;
+
+        // Load settings from localStorage
+        try {
+            const saved = localStorage.getItem('chatSettings');
+            if (saved) {
+                Object.assign(userSettings, JSON.parse(saved));
+            }
+        } catch (e) {
+            console.error(e);
+        }
+
+        function toggleSettingsModal() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.toggle('show');
+
+            // Close other menus if open
+            document.getElementById('theme-menu').classList.add('hidden');
+        }
+
+        function updateUserSetting(key, value) {
+            userSettings[key] = value;
+            localStorage.setItem('chatSettings', JSON.stringify(userSettings));
+            updateStatusIndicators();
+        }
+
+        function syncSettingsUI() {
+            const mcp = document.getElementById('setting-mcp');
+            const skills = document.getElementById('setting-skills');
+            const stream = document.getElementById('setting-stream');
+
+            if (mcp) mcp.checked = userSettings.enableMCP;
+            if (skills) skills.checked = userSettings.enableSkills;
+            if (stream) stream.checked = userSettings.stream;
+
+            updateStatusIndicators();
+        }
+
+        function updateStatusIndicators() {
+            // Mobile indicators
+            const skillsIndicator = document.getElementById('skills-indicator');
+            const mcpIndicator = document.getElementById('mcp-indicator');
+            // Desktop indicators
+            const skillsIndicatorDesktop = document.getElementById('skills-indicator-desktop');
+            const mcpIndicatorDesktop = document.getElementById('mcp-indicator-desktop');
+
+            // Text elements
+            const skillsTexts = [document.getElementById('skills-text'), document.querySelector('#skills-status-desktop .skills-text')];
+            const mcpTexts = [document.getElementById('mcp-text'), document.querySelector('#mcp-status-desktop .mcp-text')];
+
+            [skillsIndicator, skillsIndicatorDesktop].forEach(el => {
+                if (el) {
+                    el.classList.toggle('enabled', userSettings.enableSkills);
+                    el.classList.toggle('disabled', !userSettings.enableSkills);
+                }
+            });
+
+            [mcpIndicator, mcpIndicatorDesktop].forEach(el => {
+                if (el) {
+                    el.classList.toggle('enabled', userSettings.enableMCP);
+                    el.classList.toggle('disabled', !userSettings.enableMCP);
+                }
+            });
+
+            // Update text with counts if available
+            skillsTexts.forEach(el => {
+                if (el) el.textContent = skillsNum > 0 ? `Skills (${skillsNum})` : 'Skills';
+            });
+            mcpTexts.forEach(el => {
+                if (el) el.textContent = mcpToolsNum > 0 ? `MCP (${mcpToolsNum})` : 'MCP';
+            });
+        }
+
+        async function updateToolsStatus() {
+            if (!currentSessionId) return;
+            await loadHierarchicalData();
+        }
+
+        async function loadHierarchicalData(retryCount = 0) {
+            if (!currentSessionId) return;
+
+            try {
+                const response = await fetch(`/api/tools/hierarchical?session_id=${currentSessionId}`);
+                if (response.ok) {
+                    hierarchicalData = await response.json();
+
+                    skillsNum = (hierarchicalData.skills || []).length;
+                    mcpToolsNum = 0;
+                    if (hierarchicalData.mcp_tools) {
+                        hierarchicalData.mcp_tools.forEach(cat => {
+                            mcpToolsNum += (cat.tools || []).length;
+                        });
+                    }
+
+                    updateStatusIndicators();
+
+                    // If tools are still loading, retry
+                    if (hierarchicalData.tools_loading && !hierarchicalData.tools_loaded && retryCount < 10) {
+                        setTimeout(() => loadHierarchicalData(retryCount + 1), 1000);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load tools info", e);
+            }
+        }
+
+        // Theme Handling
+        function toggleThemeMenu(event) {
+            event.stopPropagation();
+            const menu = document.getElementById('theme-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        function setTheme(theme) {
+            if (theme === 'fancy') {
+                window.location.href = '/';
+                return;
+            }
+
+            const html = document.documentElement;
+            html.setAttribute('data-theme', theme);
+
+            // Toggle highlight js theme
+            const link = document.getElementById('code-theme-link');
+            if (theme === 'light') {
+                link.href = '/static/css/highlight/github.min.css';
+            } else {
+                link.href = '/static/css/highlight/atom-one-dark.min.css';
+            }
+
+            // Close menu
+            document.getElementById('theme-menu').classList.add('hidden');
+
+            // Update icon if needed? (We keep sun icon generic)
+        }
+
+        // Close theme menu on outside click
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('theme-menu');
+            if (!menu.classList.contains('hidden')) {
+                menu.classList.add('hidden');
+            }
+        });
+
+        // Sidebar Toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const btn = document.getElementById('sidebar-toggle-btn');
+
+            // Check if mobile
+            if (window.innerWidth <= 768) {
+                sidebar.classList.toggle('open');
+            } else {
+                sidebar.classList.toggle('collapsed');
+
+                // Update tooltip
+                if (sidebar.classList.contains('collapsed')) {
+                    if (btn) btn.title = "展开侧边栏";
+                } else {
+                    if (btn) btn.title = "收起侧边栏";
+                }
+            }
+        }
+        function setInput(text) {
+            const input = document.getElementById('message-input');
+            input.value = text;
+            input.focus();
+            adjustHeight(input);
+        }
+
+        function adjustHeight(el) {
+            el.style.height = 'auto';
+            el.style.height = (el.scrollHeight) + 'px';
+            if (el.value === '') el.style.height = 'auto';
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function loadSessionFromURL() {
+            const path = window.location.pathname;
+            const match = path.match(/\/ui\/v2\/sessions\/([^\/]+)/);
+            if (match) return match[1];
+
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('session_id');
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                if (response.ok) {
+                    const config = await response.json();
+
+                    // Update page title
+                    document.title = config.chatTitle;
+
+                    // Update sidebar branding
+                    const sidebarAppName = document.getElementById('sidebar-app-name');
+                    if (sidebarAppName) sidebarAppName.textContent = config.chatTitle;
+
+                    // Update desktop header title
+                    const headerTitle = document.querySelector('.desktop-header .header-title');
+                    if (headerTitle) headerTitle.textContent = config.chatTitle;
+
+                    // Update logos
+                    if (config.appLogo) {
+                        const sidebarLogo = document.getElementById('sidebar-logo-img');
+                        if (sidebarLogo) sidebarLogo.src = config.appLogo;
+
+                        const welcomeLogo = document.getElementById('welcome-logo-img');
+                        if (welcomeLogo) welcomeLogo.src = config.appLogo;
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load config", e);
+            }
+        }
+
+        function updateUserProfile() {
+            try {
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const nickname = user.nickname || user.username || '用户';
+                    const firstChar = nickname.charAt(0);
+
+                    const avatarEl = document.getElementById('user-avatar');
+                    const nicknameEl = document.getElementById('user-nickname');
+
+                    if (avatarEl) avatarEl.textContent = firstChar;
+                    if (nicknameEl) nicknameEl.textContent = nickname;
+                }
+            } catch (e) {
+                console.error('Failed to update user profile:', e);
+            }
+        }
+
+        async function init() {
+            loadConfig(); // Load config first
+            syncSettingsUI(); // Sync settings
+            updateUserProfile(); // Update user profile display
+            await loadSessions();
+            const sid = loadSessionFromURL();
+            if (sid) {
+                selectSession(sid);
+            } else {
+                createNewSession(true);
+            }
+        }
+
+        init();
+
+        // Format relative time
+        function formatRelativeTime(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffSec = Math.floor(diffMs / 1000);
+            const diffMin = Math.floor(diffSec / 60);
+            const diffHour = Math.floor(diffMin / 60);
+            const diffDay = Math.floor(diffHour / 24);
+
+            if (diffSec < 60) return '刚刚';
+            if (diffMin < 60) return `${diffMin}分钟前`;
+            if (diffHour < 24) return `${diffHour}小时前`;
+            if (diffDay < 7) return `${diffDay}天前`;
+            return date.toLocaleDateString('zh-CN');
+        }
+
+        async function deleteSession(id, event) {
+            event.stopPropagation(); // Prevent selecting the session
+            if (!confirm('确定要删除此会话吗？')) return;
+
+            try {
+                const response = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    if (currentSessionId === id) {
+                        currentSessionId = null;
+                        document.getElementById('messages').innerHTML = '';
+                        document.getElementById('welcome-screen').style.display = 'flex';
+                        // Update URL
+                        const url = new URL(window.location);
+                        url.searchParams.delete('session_id');
+                        window.history.pushState({}, '', url);
+                    }
+                    await loadSessions();
+                } else {
+                    console.error('Failed to delete session');
+                }
+            } catch (e) {
+                console.error('Error deleting session:', e);
+            }
+        }
+
+        async function loadSessions() {
+            try {
+                const response = await fetch(`/api/sessions?t=${new Date().getTime()}`);
+                const sessions = await response.json();
+                const list = document.getElementById('sessions-list');
+                list.innerHTML = '';
+
+                // Sort by date desc
+                sessions.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+                sessions.forEach(s => {
+                    const msgCount = s.message_count || 0;
+                    if (msgCount === 0) return;
+
+                    const item = document.createElement('div');
+                    item.className = 'history-item';
+                    if (s.id === currentSessionId) item.classList.add('active');
+
+                    // Main container for content
+                    const contentDiv = document.createElement('div');
+                    contentDiv.style.flex = '1';
+                    contentDiv.style.overflow = 'hidden'; // Important for ellipsis
+
+                    // Title
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'session-title';
+                    titleDiv.textContent = s.title || '新会话';
+                    titleDiv.style.whiteSpace = 'nowrap';
+                    titleDiv.style.overflow = 'hidden';
+                    titleDiv.style.textOverflow = 'ellipsis';
+
+                    // Meta row container
+                    const metaDiv = document.createElement('div');
+                    metaDiv.className = 'session-meta';
+                    metaDiv.style.fontSize = '0.75rem';
+                    metaDiv.style.color = 'var(--text-secondary)';
+                    metaDiv.style.marginTop = '2px';
+                    metaDiv.style.display = 'flex';
+                    metaDiv.style.justifyContent = 'space-between';
+                    metaDiv.style.alignItems = 'center';
+
+                    // Meta text
+                    const metaText = document.createElement('span');
+                    metaText.textContent = `${msgCount} 条消息 • ${formatRelativeTime(s.updated_at)}`;
+
+                    // Delete button
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-btn';
+                    deleteBtn.innerHTML = '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="14" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+                    deleteBtn.onclick = (e) => deleteSession(s.id, e);
+                    deleteBtn.title = '删除会话';
+
+                    metaDiv.appendChild(metaText);
+                    metaDiv.appendChild(deleteBtn);
+
+                    contentDiv.appendChild(titleDiv);
+                    contentDiv.appendChild(metaDiv);
+
+                    item.appendChild(contentDiv);
+
+                    item.onclick = () => selectSession(s.id);
+                    list.appendChild(item);
+                });
+            } catch (e) {
+                console.error("Failed to load sessions", e);
+            }
+        }
+
+        async function createNewSession(select = true) {
+            try {
+                const response = await fetch('/api/sessions/new', { method: 'POST' });
+                const data = await response.json();
+                if (select) {
+                    await selectSession(data.session_id);
+                    await loadSessions(); // Refresh list to show new chat
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function selectSession(id) {
+            currentSessionId = id;
+            // Update URL
+            const url = `/ui/v2/sessions/${id}`;
+            window.history.pushState({ sessionId: id }, '', url);
+
+            // Update UI list active state
+            document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
+            // Refind active (simple reload is easier but inefficient, let's just find by text or index if we had IDs on elements)
+            // Re-loading sessions is safer to update titles
+            await loadSessions();
+
+            // Load history
+            await loadHistory(id);
+            // Update tools status
+            await updateToolsStatus();
+        }
+
+        async function loadHistory(id) {
+            const msgsDiv = document.getElementById('messages');
+            try {
+                const response = await fetch(`/api/sessions/${id}/history`);
+                const messages = await response.json();
+
+                if (messages.length === 0) {
+                    document.getElementById('welcome-screen').style.display = 'flex';
+                    // Clear messages (keep welcome screen)
+                    Array.from(msgsDiv.children).forEach(c => {
+                        if (c.id !== 'welcome-screen') c.remove();
+                    });
+                } else {
+                    document.getElementById('welcome-screen').style.display = 'none';
+                    msgsDiv.innerHTML = '<div class="welcome-screen" id="welcome-screen" style="display:none;"></div>'; // Keep hidden welcome
+
+                    messages.forEach(msg => {
+                        appendMessage(msg.role, msg.content, msg.id, msg.feedback);
+                    });
+                }
+                scrollToBottom();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function appendMessage(role, content, messageId, feedback) {
+            const msgsDiv = document.getElementById('messages');
+            const isUser = role === 'user';
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${role}`;
+            if (messageId) msgDiv.dataset.messageId = messageId;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-content-wrapper';
+
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+            if (isUser) {
+                avatar.style.backgroundColor = '#5436DA';
+                avatar.textContent = 'U';
+                avatar.style.color = 'white';
+            } else {
+                avatar.style.backgroundColor = '#10a37f'; // ChatGPT green
+                avatar.innerHTML = '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="1.5em" width="1.5em" xmlns="http://www.w3.org/2000/svg" style="color: white;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"></path></svg>';
+            }
+
+            // Message Body Container
+            const bodyDiv = document.createElement('div');
+            bodyDiv.className = 'message-body';
+
+            const textDiv = document.createElement('div');
+            textDiv.className = 'message-text';
+
+            if (isUser) {
+                textDiv.textContent = content;
+            } else {
+                // Parse markdown
+                textDiv.innerHTML = marked.parse(content);
+                // Highlight code
+                textDiv.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            }
+
+            bodyDiv.appendChild(textDiv);
+
+            // Add actions for assistant
+            if (!isUser) {
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'message-actions';
+
+                // Copy Button
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'action-btn';
+                copyBtn.title = '复制';
+                copyBtn.innerHTML = '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+                copyBtn.onclick = () => copyMessage(content, copyBtn);
+
+                // Like Button
+                const likeBtn = document.createElement('button');
+                likeBtn.className = 'action-btn';
+                if (feedback === 'like') likeBtn.classList.add('active');
+                likeBtn.title = '喜欢';
+                likeBtn.innerHTML = '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>';
+                likeBtn.onclick = () => rateMessage(msgDiv, 'like');
+
+                // Dislike Button
+                const dislikeBtn = document.createElement('button');
+                dislikeBtn.className = 'action-btn';
+                if (feedback === 'dislike') dislikeBtn.classList.add('active');
+                dislikeBtn.title = '不喜欢';
+                dislikeBtn.innerHTML = '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path></svg>';
+                dislikeBtn.onclick = () => rateMessage(msgDiv, 'dislike');
+
+                actionsDiv.appendChild(copyBtn);
+                actionsDiv.appendChild(likeBtn);
+                actionsDiv.appendChild(dislikeBtn);
+                bodyDiv.appendChild(actionsDiv);
+            }
+
+            wrapper.appendChild(avatar);
+            wrapper.appendChild(bodyDiv);
+            msgDiv.appendChild(wrapper);
+            msgsDiv.appendChild(msgDiv);
+
+            return textDiv;
+        }
+
+        async function copyMessage(text, btn) {
+            try {
+                // If it's the assistant, 'text' might be raw markdown passed in
+                // But if we are called from the button, we pass the content
+                // Wait, if content updates during stream, the 'content' var in closure is stale?
+                // For valid copy, we should grab text from the textDiv or keep track.
+                // Simple way: copy textContent of textDiv? No, we want markdown.
+                // During init/append, we pass 'content'. For streamed, we need to get it from somewhere.
+                // Let's grab the text from the message element dataset or something? 
+                // Actually, textContent of the textDiv is the rendered text, not markdown.
+                // Users usually want to copy the valid output.
+                // Let's use navigator.clipboard.writeText.
+                // For now, let's defer deciding if we store raw markdown on the element.
+                // Assuming we copy the text of the message as displayed (or we need to store raw).
+                // Let's store raw content on the textDiv as a property.
+
+                // Correction: The button click handler captures the 'content' variable at creation time.
+                // For history load, this is fine.
+                // For streaming, we are in 'streamMessage'. We need to update the onclick handler when stream ends.
+
+                await navigator.clipboard.writeText(text);
+
+                // visual feedback
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><polyline points="20 6 9 17 4 12"></polyline></svg>'; // Check mark
+                setTimeout(() => {
+                    btn.innerHTML = originalHTML;
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy', err);
+            }
+        }
+
+        async function rateMessage(msgDiv, type) {
+            const messageId = msgDiv.dataset.messageId;
+            if (!messageId) return;
+
+            // Optimistic update
+            const likeBtn = msgDiv.querySelector('button[title="喜欢"]');
+            const dislikeBtn = msgDiv.querySelector('button[title="不喜欢"]');
+
+            if (type === 'like') {
+                if (likeBtn.classList.contains('active')) {
+                    // Toggle off
+                    likeBtn.classList.remove('active');
+                    type = 'none'; // logic to clear feedback if supported?
+                } else {
+                    likeBtn.classList.add('active');
+                    dislikeBtn.classList.remove('active');
+                }
+            } else if (type === 'dislike') {
+                if (dislikeBtn.classList.contains('active')) {
+                    // Toggle off
+                    dislikeBtn.classList.remove('active');
+                    type = 'none';
+                } else {
+                    dislikeBtn.classList.add('active');
+                    likeBtn.classList.remove('active');
+                }
+            }
+
+            try {
+                await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        message_id: messageId,
+                        feedback: type
+                    })
+                });
+            } catch (e) {
+                console.error("Feedback failed", e);
+                // Revert UI?
+            }
+        }
+
+        function scrollToBottom() {
+            const msgs = document.getElementById('messages');
+            msgs.scrollTop = msgs.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text || isWaitingForResponse) return;
+
+            if (!currentSessionId) {
+                await createNewSession(false); // Create but don't reload list yet
+            }
+
+            // UI updates
+            document.getElementById('welcome-screen').style.display = 'none';
+            input.value = '';
+            adjustHeight(input);
+            appendMessage('user', text);
+            scrollToBottom();
+
+            isWaitingForResponse = true; // Block sending
+            const sendBtn = document.getElementById('send-btn');
+            sendBtn.classList.add('disabled');
+
+            try {
+                if (userSettings.stream) {
+                    await streamMessage(text);
+                } else {
+                    // Normal request
+                    // ... implementation skipped for brevity, favoring stream
+                    await streamMessage(text);
+                }
+            } finally {
+                isWaitingForResponse = false;
+                sendBtn.classList.remove('disabled');
+                // Refresh sessions to update title/count
+                loadSessions();
+            }
+        }
+
+        async function streamMessage(message) {
+            // Create placeholder for assistant message
+            const contentDiv = appendMessage('assistant', '');
+            contentDiv.innerHTML = '<span class="typing">...</span>';
+
+            let fullText = '';
+            let messageId = null;
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        message: message,
+                        user_settings: {
+                            enable_skills: userSettings.enableSkills, // Use global settings
+                            enable_mcp: userSettings.enableMCP
+                        },
+                        stream: userSettings.stream // Use global setting
+                    })
+                });
+
+                if (!userSettings.stream) {
+                    // Handle non-streaming response
+                    const data = await response.json();
+                    if (response.ok) {
+                        fullText = data.response;
+                        messageId = data.message_id;
+                        contentDiv.innerHTML = marked.parse(fullText);
+
+                        // Set message ID
+                        const msgDiv = contentDiv.closest('.message');
+                        if (msgDiv && messageId) {
+                            msgDiv.dataset.messageId = messageId;
+                        }
+                    } else {
+                        // Error handling
+                        fullText = "[Error: " + (data.error || response.statusText) + "]";
+                        contentDiv.innerHTML = marked.parse(fullText);
+                    }
+
+                    // Highlight after full content
+                    contentDiv.querySelectorAll('pre code').forEach((block) => {
+                        hljs.highlightElement(block);
+                    });
+                    scrollToBottom();
+
+                } else {
+                    // Handle streaming response
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        const chunk = decoder.decode(value, { stream: true });
+                        const lines = chunk.split('\n');
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.slice(6));
+                                    if (data.type === 'chunk') {
+                                        fullText += data.chunk;
+                                        contentDiv.innerHTML = marked.parse(fullText);
+                                    } else if (data.type === 'error') {
+                                        fullText += "\n[Error: " + data.error + "]";
+                                        contentDiv.innerHTML = marked.parse(fullText);
+                                    } else if (data.type === 'end') {
+                                        messageId = data.message_id;
+                                        // Update message ID
+                                        const msgDiv = contentDiv.closest('.message');
+                                        if (msgDiv && messageId) {
+                                            msgDiv.dataset.messageId = messageId;
+                                        }
+                                    }
+
+                                    contentDiv.querySelectorAll('pre code').forEach((block) => {
+                                        hljs.highlightElement(block);
+                                    });
+                                    scrollToBottom();
+                                } catch (e) {
+                                    console.error('JSON parse error', e);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                contentDiv.innerHTML += '<br>[Connection Error]';
+            } finally {
+                // Update copy button with full text
+                const actionsDiv = contentDiv.nextElementSibling;
+                if (actionsDiv) {
+                    const copyBtn = actionsDiv.querySelector('button[title="复制"]');
+                    if (copyBtn) {
+                        copyBtn.onclick = () => copyMessage(fullText, copyBtn);
+                    }
+                }
+            }
+        }
+
+        async function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                // Get refresh token for cleanup
+                const refreshToken = localStorage.getItem('refresh_token');
+
+                // Call logout API
+                if (refreshToken) {
+                    try {
+                        await fetch('/api/auth/logout', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ refresh_token: refreshToken })
+                        });
+                    } catch (e) {
+                        console.warn('Logout API call failed:', e);
+                    }
+                }
+
+                // Clear local storage
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('user');
+
+                // Clear cookies
+                document.cookie = 'access_token=; path=/; max-age=0';
+                document.cookie = 'refresh_token=; path=/; max-age=0';
+                document.cookie = 'user_id=; path=/; max-age=0';
+
+                // Redirect to login
+                window.location.href = '/login';
+            }
+        }
+    </script>
+</body>
+
+</html>

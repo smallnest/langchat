@@ -203,8 +203,7 @@ body {
     border-top: 1px solid var(--border-primary);
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
+    justify-content: space-between;
     position: relative;
     transition: all 0.3s ease;
 }
@@ -213,7 +212,33 @@ body {
     flex-direction: column;
     padding: 10px 12px;
     justify-content: center;
+    gap: 12px;
+}
+
+.sidebar.collapsed .user-info-sidebar {
+    opacity: 1;
+    pointer-events: auto;
+    order: 10;
+    width: 100%;
+    justify-content: center;
+}
+
+.sidebar.collapsed .user-name-sidebar {
+    display: none;
+}
+
+.sidebar-actions {
+    display: flex;
     gap: 8px;
+    margin-left: auto;
+}
+
+.sidebar.collapsed .sidebar-actions {
+    flex-direction: column;
+    margin-left: 0;
+    gap: 12px;
+    width: 100%;
+    align-items: center;
 }
 
 .theme-selector-sidebar,
@@ -774,9 +799,20 @@ body {
 }
 
 @keyframes logo-pulse {
-    0% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.3)); }
-    50% { transform: scale(1.05); filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.6)); }
-    100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.3)); }
+    0% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.3));
+    }
+
+    50% {
+        transform: scale(1.05);
+        filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.6));
+    }
+
+    100% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.3));
+    }
 }
 
 .app-logo {
@@ -788,12 +824,21 @@ body {
 }
 
 @keyframes hover-breathe {
-    0% { transform: scale(1) rotate(0deg); }
-    50% { transform: scale(1.1) rotate(5deg); }
-    100% { transform: scale(1) rotate(0deg); }
+    0% {
+        transform: scale(1) rotate(0deg);
+    }
+
+    50% {
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    100% {
+        transform: scale(1) rotate(0deg);
+    }
 }
 
-.app-logo:hover, .avatar:hover {
+.app-logo:hover,
+.avatar:hover {
     animation: hover-breathe 2s infinite ease-in-out !important;
     cursor: pointer;
     filter: drop-shadow(0 0 12px var(--accent-primary));
@@ -948,9 +993,20 @@ body {
 }
 
 @keyframes avatar-pop {
-    0% { transform: scale(0); opacity: 0; }
-    70% { transform: scale(1.1); opacity: 1; }
-    100% { transform: scale(1); opacity: 1; }
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    70% {
+        transform: scale(1.1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 .avatar {
@@ -966,7 +1022,7 @@ body {
     font-weight: bold;
     color: white;
     animation: avatar-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .message.assistant .avatar {
@@ -1408,11 +1464,11 @@ body {
     transition: transform 0.3s;
 }
 
-.settings-toggle input[type="checkbox"]:checked + .toggle-slider {
+.settings-toggle input[type="checkbox"]:checked+.toggle-slider {
     background: var(--accent-primary);
 }
 
-.settings-toggle input[type="checkbox"]:checked + .toggle-slider::before {
+.settings-toggle input[type="checkbox"]:checked+.toggle-slider::before {
     transform: translateX(20px);
 }
 
@@ -1625,4 +1681,47 @@ body {
         max-width: none;
         top: 10px;
     }
+}
+
+/* User Info in Sidebar */
+.user-info-sidebar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+    transition: opacity 0.3s;
+}
+
+
+.user-avatar-sidebar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5436DA 0%, #7c3aed 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 16px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(84, 54, 218, 0.3);
+    transition: all 0.3s;
+}
+
+.user-avatar-sidebar:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(84, 54, 218, 0.4);
+}
+
+.user-name-sidebar {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
 }

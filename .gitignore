@@ -28,6 +28,8 @@ chat
 langchat
 !chat/
 
+sessions/
+
 # env file
 .env
 

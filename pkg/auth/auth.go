@@ -15,6 +15,7 @@ type User struct {
 	ID        string     `json:"id"`
 	Username  string     `json:"username"`
 	Email     string     `json:"email"`
+	Nickname  string     `json:"nickname"`
 	Password  string     `json:"-"` // Never expose password
 	Roles     []string   `json:"roles"`
 	CreatedAt time.Time  `json:"created_at"`
@@ -41,6 +42,7 @@ type LoginRequest struct {
 type RegisterRequest struct {
 	Username string `json:"username" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
+	Nickname string `json:"nickname"`
 	Password string `json:"password" binding:"required,min=6"`
 }
 
@@ -57,6 +59,7 @@ type UserInfo struct {
 	ID       string   `json:"id"`
 	Username string   `json:"username"`
 	Email    string   `json:"email"`
+	Nickname string   `json:"nickname"`
 	Roles    []string `json:"roles"`
 }
 
@@ -81,7 +84,7 @@ func NewAuthService(secretKey string, tokenExpiry, refreshExpiry time.Duration) 
 }
 
 // CreateUser creates a new user (for testing/demo)
-func (a *AuthService) CreateUser(username, email, password string, roles []string) (*User, error) {
+func (a *AuthService) CreateUser(username, email, nickname, password string, roles []string) (*User, error) {
 	// Check if user already exists
 	if _, exists := a.users[username]; exists {
 		return nil, fmt.Errorf("user already exists")
@@ -90,10 +93,16 @@ func (a *AuthService) CreateUser(username, email, password string, roles []strin
 	// Hash password (simple hash for demo, use bcrypt in production)
 	hashedPassword := a.hashPassword(password)
 
+	// Use username as nickname if not provided
+	if nickname == "" {
+		nickname = username
+	}
+
 	user := &User{
 		ID:        a.generateID(),
 		Username:  username,
 		Email:     email,
+		Nickname:  nickname,
 		Password:  hashedPassword,
 		Roles:     roles,
 		CreatedAt: time.Now(),
@@ -148,6 +157,7 @@ func (a *AuthService) Login(ctx context.Context, req *LoginRequest) (*LoginRespo
 			ID:       user.ID,
 			Username: user.Username,
 			Email:    user.Email,
+			Nickname: user.Nickname,
 			Roles:    user.Roles,
 		},
 	}, nil
@@ -161,7 +171,7 @@ func (a *AuthService) Register(ctx context.Context, req *RegisterRequest) (*Logi
 	}
 
 	// Create user
-	user, err := a.CreateUser(req.Username, req.Email, req.Password, []string{"user"})
+	user, err := a.CreateUser(req.Username, req.Email, req.Nickname, req.Password, []string{"user"})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
@@ -188,6 +198,7 @@ func (a *AuthService) Register(ctx context.Context, req *RegisterRequest) (*Logi
 			ID:       user.ID,
 			Username: user.Username,
 			Email:    user.Email,
+			Nickname: user.Nickname,
 			Roles:    user.Roles,
 		},
 	}, nil
@@ -237,6 +248,7 @@ func (a *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*L
 			ID:       user.ID,
 			Username: user.Username,
 			Email:    user.Email,
+			Nickname: user.Nickname,
 			Roles:    user.Roles,
 		},
 	}, nil
@@ -261,13 +273,13 @@ func (a *AuthService) GetUserByID(userID string) (*User, bool) {
 // CreateDemoUsers creates demo users for testing
 func (a *AuthService) CreateDemoUsers() error {
 	// Create admin user
-	_, err := a.CreateUser("admin", "admin@example.com", "admin123", []string{"admin", "user"})
+	_, err := a.CreateUser("admin", "admin@example.com", "管理员", "admin123", []string{"admin", "user"})
 	if err != nil {
 		return fmt.Errorf("failed to create admin user: %w", err)
 	}
 
 	// Create regular user
-	_, err = a.CreateUser("user", "user@example.com", "user123", []string{"user"})
+	_, err = a.CreateUser("user", "user@example.com", "普通用户", "user123", []string{"user"})
 	if err != nil {
 		return fmt.Errorf("failed to create regular user: %w", err)
 	}

@@ -178,6 +178,7 @@ func (a *AuthAPI) HandleGetCurrentUser(w http.ResponseWriter, r *http.Request) {
 		ID:       fullUser.ID,
 		Username: fullUser.Username,
 		Email:    fullUser.Email,
+		Nickname: fullUser.Nickname,
 		Roles:    fullUser.Roles,
 	}); err != nil {
 		log.Printf("Warning: Failed to encode user info response: %v", err)
@@ -510,6 +511,10 @@ const registerPageHTML = `<!DOCTYPE html>
                 <input type="text" id="username" name="username" required>
             </div>
             <div class="form-group">
+                <label for="nickname">昵称（可选）</label>
+                <input type="text" id="nickname" name="nickname" placeholder="不填写则使用用户名">
+            </div>
+            <div class="form-group">
                 <label for="email">电子邮箱</label>
                 <input type="email" id="email" name="email" required>
             </div>
@@ -530,6 +535,7 @@ const registerPageHTML = `<!DOCTYPE html>
             e.preventDefault();
 
             const username = document.getElementById('username').value;
+            const nickname = document.getElementById('nickname').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('error-message');
@@ -540,7 +546,7 @@ const registerPageHTML = `<!DOCTYPE html>
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ username, email, password })
+                    body: JSON.stringify({ username, nickname, email, password })
                 });
 
                 const data = await response.json();

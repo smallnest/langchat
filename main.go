@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"io/fs"
+
 	"github.com/smallnest/langchat/pkg/chat"
 )
 
@@ -99,8 +101,15 @@ func main() {
 
 	// Setup graceful shutdown
 	serverErr := make(chan error, 1)
+	// Use local filesystem if static directory exists (for development), otherwise use embedded
+	var fileSystem fs.FS = staticFS
+	if _, err := os.Stat("static"); err == nil {
+		log.Println("📂 Using local static directory")
+		fileSystem = os.DirFS(".")
+	}
+
 	go func() {
-		if err := server.Start(staticFS); err != nil {
+		if err := server.Start(fileSystem); err != nil {
 			serverErr <- err
 		}
 	}()

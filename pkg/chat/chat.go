@@ -965,6 +965,22 @@ func (cs *ChatServer) HandleIndex(w http.ResponseWriter, r *http.Request, static
 	}
 }
 
+// HandleIndex2 serves the alternative HTML page
+func (cs *ChatServer) HandleIndex2(w http.ResponseWriter, r *http.Request, staticFS fs.FS) {
+	// Read index2.html from embedded filesystem
+	data, err := fs.ReadFile(staticFS, "static/index2.html")
+	if err != nil {
+		http.Error(w, "Failed to load page", http.StatusInternalServerError)
+		log.Printf("Failed to read index2.html: %v", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if _, err := w.Write(data); err != nil {
+		log.Printf("Warning: Failed to write index2.html: %v", err)
+	}
+}
+
 // HandleNewSession creates a new chat session
 func (cs *ChatServer) HandleNewSession(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -1583,6 +1599,33 @@ func (cs *ChatServer) Start(staticFS fs.FS) error {
 	mux.HandleFunc("/ready", cs.HandleReady)
 	mux.HandleFunc("/info", cs.HandleInfo)
 	mux.HandleFunc("/api/config", cs.HandleConfig)
+
+	// Main app route v2 - serve index2.html
+	uiV2Handler := func(w http.ResponseWriter, r *http.Request) {
+		// Check if user is authenticated
+		token := r.Header.Get("Authorization")
+		if token == "" {
+			// Check for token in cookie
+			cookie, err := r.Cookie("access_token")
+			if err == nil {
+				token = "Bearer " + cookie.Value
+			}
+		}
+
+		if token != "" {
+			if strings.HasPrefix(token, "Bearer ") {
+				tokenStr := strings.TrimPrefix(token, "Bearer ")
+				if _, err := cs.jwtAuth.ValidateToken(tokenStr); err == nil {
+					cs.HandleIndex2(w, r, staticFS)
+					return
+				}
+			}
+		}
+
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+	}
+	mux.HandleFunc("/ui/v2", uiV2Handler)
+	mux.HandleFunc("/ui/v2/", uiV2Handler)
 
 	// Main app route - authenticate first, then serve original index.html
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
