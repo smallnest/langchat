@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
 	"sync"
 	"time"
 
@@ -201,13 +202,7 @@ func (lm *AgentLifecycleManager) isValidTransition(from, to AgentState) bool {
 		return false
 	}
 
-	for _, validState := range allowed {
-		if to == validState {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(allowed, to)
 }
 
 // UpdateActivity updates the last activity timestamp

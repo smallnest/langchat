@@ -1643,8 +1643,8 @@ func (cs *ChatServer) Start(staticFS fs.FS) error {
 
 			if token != "" {
 				// Validate token
-				if strings.HasPrefix(token, "Bearer ") {
-					tokenStr := strings.TrimPrefix(token, "Bearer ")
+				if after, ok := strings.CutPrefix(token, "Bearer "); ok {
+					tokenStr := after
 					if _, err := cs.jwtAuth.ValidateToken(tokenStr); err == nil {
 						// User is authenticated, serve original index.html
 						cs.HandleIndex(w, r, staticFS)
@@ -1780,12 +1780,12 @@ IMPORTANT:
 
 	// Clean up the decision
 	cleanDecision := strings.TrimSpace(decision)
-	if strings.HasPrefix(cleanDecision, "```json") {
-		cleanDecision = strings.TrimPrefix(cleanDecision, "```json")
+	if after, ok := strings.CutPrefix(cleanDecision, "```json"); ok {
+		cleanDecision = after
 		cleanDecision = strings.TrimSuffix(cleanDecision, "```")
 		cleanDecision = strings.TrimSpace(cleanDecision)
-	} else if strings.HasPrefix(cleanDecision, "```") {
-		cleanDecision = strings.TrimPrefix(cleanDecision, "```")
+	} else if after, ok := strings.CutPrefix(cleanDecision, "```"); ok {
+		cleanDecision = after
 		cleanDecision = strings.TrimSuffix(cleanDecision, "```")
 		cleanDecision = strings.TrimSpace(cleanDecision)
 	}
@@ -1859,12 +1859,12 @@ IMPORTANT:
 
 	// Clean up the decision
 	cleanDecision := strings.TrimSpace(decision)
-	if strings.HasPrefix(cleanDecision, "```json") {
-		cleanDecision = strings.TrimPrefix(cleanDecision, "```json")
+	if after, ok := strings.CutPrefix(cleanDecision, "```json"); ok {
+		cleanDecision = after
 		cleanDecision = strings.TrimSuffix(cleanDecision, "```")
 		cleanDecision = strings.TrimSpace(cleanDecision)
-	} else if strings.HasPrefix(cleanDecision, "```") {
-		cleanDecision = strings.TrimPrefix(cleanDecision, "```")
+	} else if after, ok := strings.CutPrefix(cleanDecision, "```"); ok {
+		cleanDecision = after
 		cleanDecision = strings.TrimSuffix(cleanDecision, "```")
 		cleanDecision = strings.TrimSpace(cleanDecision)
 	}
@@ -1916,7 +1916,7 @@ func (s *ChatServer) HandleHealth(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if allHealthy {
 			w.WriteHeader(http.StatusOK)
-			if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]any{
 				"status":    "healthy",
 				"timestamp": time.Now().UTC(),
 				"checks":    results,
@@ -1925,7 +1925,7 @@ func (s *ChatServer) HandleHealth(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]any{
 				"status":    "unhealthy",
 				"timestamp": time.Now().UTC(),
 				"checks":    results,
@@ -1937,7 +1937,7 @@ func (s *ChatServer) HandleHealth(w http.ResponseWriter, r *http.Request) {
 		// Fallback health check
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]any{
 			"status":    "healthy",
 			"timestamp": time.Now().UTC(),
 		}); err != nil {
@@ -1960,7 +1960,7 @@ func (s *ChatServer) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotFound)
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]any{
 		"error": "Metrics collection not enabled",
 	}); err != nil {
 		log.Printf("Warning: Failed to encode metrics error response: %v", err)
@@ -1988,7 +1988,7 @@ func (s *ChatServer) HandleReady(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if ready {
 			w.WriteHeader(http.StatusOK)
-			if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]any{
 				"status":    "ready",
 				"timestamp": time.Now().UTC(),
 			}); err != nil {
@@ -1996,7 +1996,7 @@ func (s *ChatServer) HandleReady(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]any{
 				"status":    "not ready",
 				"timestamp": time.Now().UTC(),
 			}); err != nil {
@@ -2007,7 +2007,7 @@ func (s *ChatServer) HandleReady(w http.ResponseWriter, r *http.Request) {
 		// Default to ready if no health checker is configured
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]any{
 			"status":    "ready",
 			"timestamp": time.Now().UTC(),
 		}); err != nil {
@@ -2018,12 +2018,12 @@ func (s *ChatServer) HandleReady(w http.ResponseWriter, r *http.Request) {
 
 // HandleInfo handles server info requests
 func (s *ChatServer) HandleInfo(w http.ResponseWriter, r *http.Request) {
-	info := map[string]interface{}{
+	info := map[string]any{
 		"service":     "LangChat Agent",
 		"version":     "1.0.0",
 		"environment": "development", // TODO: Get from config manager
 		"timestamp":   time.Now().UTC(),
-		"features": map[string]interface{}{
+		"features": map[string]any{
 			"agent_management": s.lifecycleManager != nil,
 			"monitoring":       s.metricsCollector != nil,
 			"health_checks":    s.healthChecker != nil,
@@ -2039,16 +2039,16 @@ func (s *ChatServer) HandleInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add configuration summary
-	info["config"] = map[string]interface{}{
-		"server": map[string]interface{}{
+	info["config"] = map[string]any{
+		"server": map[string]any{
 			"host": s.config.Server.Host,
 			"port": s.config.Server.Port,
 		},
-		"agent": map[string]interface{}{
+		"agent": map[string]any{
 			"max_concurrent": s.config.Agent.MaxConcurrent,
 			"max_idle_time":  s.config.Agent.MaxIdleTime,
 		},
-		"monitoring": map[string]interface{}{
+		"monitoring": map[string]any{
 			"enabled":      s.config.Monitoring.Enabled,
 			"metrics_port": s.config.Monitoring.MetricsPort,
 		},

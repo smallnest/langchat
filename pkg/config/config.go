@@ -385,7 +385,7 @@ func (m *Manager) setFieldValue(field reflect.Value, value string) error {
 	case reflect.String:
 		field.SetString(value)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		if field.Type() == reflect.TypeOf(time.Duration(0)) {
+		if field.Type() == reflect.TypeFor[time.Duration]() {
 			duration, err := time.ParseDuration(value)
 			if err != nil {
 				return err

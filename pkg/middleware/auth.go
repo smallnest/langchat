@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -47,7 +48,7 @@ func (a *AuthMiddleware) GenerateToken(userID, username string, roles []string) 
 
 // ValidateToken validates the JWT token and returns the claims
 func (a *AuthMiddleware) ValidateToken(tokenString string) (*auth.JWTClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &auth.JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &auth.JWTClaims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrSignatureInvalid
 		}
@@ -151,13 +152,7 @@ func (a *AuthMiddleware) HasRole(ctx context.Context, role string) bool {
 		return false
 	}
 
-	for _, userRole := range user.Roles {
-		if userRole == role {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(user.Roles, role)
 }
 
 // RequireRole creates a middleware that requires the user to have the specified role
